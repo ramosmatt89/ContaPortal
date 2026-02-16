@@ -12,7 +12,9 @@ import {
   Copy,
   User,
   MoreVertical,
-  ShieldAlert
+  ShieldAlert,
+  RefreshCw,
+  MailCheck
 } from 'lucide-react';
 
 interface ClientsManagementProps {
@@ -32,6 +34,10 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [lastInvitedEmail, setLastInvitedEmail] = useState<string>('');
+  
+  // Toast state for actions
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form State
   const [newClient, setNewClient] = useState({
@@ -48,32 +54,27 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     client.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewClient(prev => ({ ...prev, [name]: value }));
+  };
+
+  const generateInviteLink = (email: string) => {
+    const inviterName = "O Seu Contabilista"; 
+    const inviterLogoParam = "&logo=demo";
+    return `https://contaportal.pt/login?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(email)}`;
   };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Get current user details from local storage or context if available
-    // For this mock, we assume the user just updated their profile and we want to pass that info
-    // Note: In a real app, the backend generates this token. Here we simulate the URL params.
-    // We access the "CurrentUser" via a hack or assuming data is passed. 
-    // Since we don't have currentUser prop here, let's pretend the link generation is server-side 
-    // but formatted for our client-side Login.tsx demo.
-    
-    // We will retrieve the currentUser from the Layout context conceptually, 
-    // but since we are inside a component, let's grab the generic "Accountant" identity
-    // or rely on what's available.
-    
-    // BETTER APPROACH: We don't have the current user in props. 
-    // To solve this properly without changing App.tsx props too much, 
-    // we'll assume the URL we generate simply has placeholders that Login.tsx can read if we were testing e2e.
-    // HOWEVER, to make the demo work right now for the user:
-    // Let's assume we are the accountant.
-    
+    // Simulate Server Delay + Email Sending
     setTimeout(() => {
       const newId = `c${Date.now()}`;
       const createdClient: Client = {
@@ -85,26 +86,28 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         avatarUrl: `https://picsum.photos/seed/${newId}/200`,
         status: 'INVITED', // Default status for new invites
         pendingDocs: 0,
-        accountantId: 'current_user' // In real app, this comes from auth
+        accountantId: 'current_user'
       };
 
       onAddClient(createdClient);
+      
+      // Store email for success message
+      setLastInvitedEmail(newClient.email);
+      
+      // Generate the link for the backup manual copy
+      const link = generateInviteLink(newClient.email);
+      setGeneratedLink(link);
+      
       setIsLoading(false);
-      
-      // Generate Link with Branding Params (Simulated)
-      // We look for the user info in the DOM or simple session storage if we wanted persistence
-      // For this demo, we'll append a generic "inviter" param that Login.tsx will recognize
-      // or if the user uploaded a logo, we'd ideally pass it. 
-      // Since `clients` doesn't hold the accountant's logo, we'll pass a placeholder
-      // that Login.tsx will use to show the feature.
-      
-      // In a real scenario, the ID implies the accountant, and the backend fetches the logo.
-      // Here, we'll encode it in the URL for the frontend demo.
-      const inviterName = "O Seu Contabilista"; 
-      const inviterLogoParam = "&logo=demo"; // Login.tsx will interpret 'demo' or a real URL
-
-      setGeneratedLink(`https://contaportal.pt/login?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(newClient.email)}`);
     }, 1500);
+  };
+
+  const handleResendInvite = (client: Client) => {
+    // Simulate resending email
+    const confirmResend = window.confirm(`Reenviar convite para ${client.email}?`);
+    if (confirmResend) {
+      showToast(`✉️ Convite reenviado para ${client.email}`);
+    }
   };
 
   const handleCloseModal = () => {
@@ -121,14 +124,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     // Only update if status changed
     if (newStatus !== client.status) {
        onUpdateClient({ ...client, status: newStatus as any });
+       showToast(newStatus === 'INACTIVE' ? 'Cliente desativado' : 'Cliente ativado');
     }
   };
 
-  const copyLink = () => {
-    if(generatedLink) {
-      navigator.clipboard.writeText(generatedLink);
-      alert('Link copiado!');
-    }
+  const copyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    showToast('🔗 Link copiado para a área de transferência');
   }
 
   const getStatusBadge = (status: string) => {
@@ -145,14 +147,22 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-8">
+    <div className="space-y-8 animate-fade-in-up pb-8 relative">
       
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] bg-neutral-dark text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-fade-in-up">
+          <CheckCircle size={18} className="text-status-success" />
+          <span className="font-bold text-sm">{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
           <p className="text-neutral-medium text-lg max-w-xl leading-relaxed">
-            Gerencie o acesso ao portal. Os clientes só podem entrar através do seu <span className="text-brand-blue font-bold">Link de Convite</span>.
+            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite por Email</span> automaticamente.
           </p>
         </div>
 
@@ -232,19 +242,22 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                
                <div className="flex items-center gap-2">
                  {client.status === 'INVITED' && (
-                    <button 
-                      title="Copiar Link de Convite"
-                      onClick={() => {
-                        // In a real app we'd access the currentUser here to pass their logo
-                        // For demo consistency we keep it generic
-                        const link = `https://contaportal.pt/login?invitedBy=O%20Seu%20Contabilista&email=${encodeURIComponent(client.email)}`;
-                        navigator.clipboard.writeText(link);
-                        alert('Link copiado!');
-                      }}
-                      className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
-                    >
-                      <Copy size={18} />
-                    </button>
+                    <>
+                      <button 
+                        title="Reenviar Convite por Email"
+                        onClick={() => handleResendInvite(client)}
+                        className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
+                      >
+                        <RefreshCw size={18} />
+                      </button>
+                      <button 
+                        title="Copiar Link Manualmente"
+                        onClick={() => copyLink(generateInviteLink(client.email))}
+                        className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-neutral-dark transition-colors"
+                      >
+                        <Copy size={18} />
+                      </button>
+                    </>
                  )}
 
                  <button className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium transition-colors">
@@ -299,40 +312,54 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
           <div className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden">
             
             {/* Modal Header */}
-            <div className="mb-8 text-center">
-              <div className="w-16 h-16 bg-gradient-to-tr from-brand-blue to-brand-purple rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-brand-blue/30">
-                {generatedLink ? <CheckCircle size={32} /> : <Mail size={32} />}
+            <div className="mb-6 text-center">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg transition-colors duration-500 ${
+                  generatedLink 
+                    ? 'bg-gradient-to-tr from-green-400 to-status-success shadow-status-success/30' 
+                    : 'bg-gradient-to-tr from-brand-blue to-brand-purple shadow-brand-blue/30'
+                }`}>
+                {generatedLink ? <MailCheck size={32} /> : <Mail size={32} />}
               </div>
               <h3 className="text-3xl font-extrabold text-neutral-dark tracking-tight">
-                {generatedLink ? 'Convite Gerado!' : 'Novo Convite'}
+                {generatedLink ? 'Convite Enviado!' : 'Novo Convite'}
               </h3>
-              <p className="text-neutral-medium mt-2 max-w-xs mx-auto">
+              <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
                 {generatedLink 
-                  ? 'Envie este link para o cliente configurar o acesso seguro.' 
-                  : 'Preencha os dados para gerar um link de acesso exclusivo.'}
+                  ? `Um e-mail automático foi enviado para ${lastInvitedEmail}.` 
+                  : 'Preencha os dados abaixo. Um convite será enviado automaticamente por e-mail.'}
               </p>
             </div>
 
             {generatedLink ? (
-              // Success State - Show Link
+              // Success State - Email Sent + Backup Link
               <div className="space-y-6 animate-fade-in-up">
-                 <div className="bg-neutral-bg p-4 rounded-2xl border border-neutral-light relative group">
-                    <p className="text-xs font-bold text-neutral-medium uppercase mb-2">Link de Ativação</p>
-                    <div className="font-mono text-brand-blue text-sm break-all pr-8">
-                      {generatedLink}
+                 
+                 <div className="bg-neutral-bg p-4 rounded-2xl border border-neutral-light relative">
+                    <div className="flex justify-between items-center mb-2">
+                       <p className="text-xs font-bold text-neutral-medium uppercase">Link de Cópia Manual</p>
+                       <span className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-lg">Backup</span>
                     </div>
-                    <button 
-                      onClick={copyLink}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white rounded-xl shadow-sm text-neutral-dark hover:text-brand-blue transition-colors"
-                    >
-                      <Copy size={18} />
-                    </button>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 font-mono text-neutral-dark text-xs truncate bg-white p-3 rounded-xl border border-neutral-light">
+                        {generatedLink}
+                      </div>
+                      <button 
+                        onClick={() => copyLink(generatedLink!)}
+                        className="p-3 bg-brand-blue text-white rounded-xl shadow-lg shadow-brand-blue/20 hover:bg-brand-purple transition-all active:scale-95"
+                      >
+                        <Copy size={18} />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-neutral-medium mt-2">
+                      Utilize este link caso o cliente não receba o e-mail automático.
+                    </p>
                  </div>
                  
-                 <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 flex gap-3">
-                   <div className="text-yellow-600 mt-0.5"><ShieldAlert size={18} /></div>
-                   <p className="text-xs text-yellow-800 font-medium leading-relaxed">
-                     Este link é único e expira em 48 horas. O cliente definirá a password no primeiro acesso.
+                 <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex gap-3">
+                   <div className="text-status-success mt-0.5"><CheckCircle size={18} /></div>
+                   <p className="text-xs text-green-800 font-medium leading-relaxed">
+                     Cliente adicionado com sucesso à lista de espera. O status mudará quando o convite for aceite.
                    </p>
                  </div>
 
@@ -340,7 +367,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     onClick={handleCloseModal}
                     className="w-full py-4 rounded-2xl font-bold text-white btn-liquid shadow-lg"
                   >
-                    Concluir
+                    Concluir e Fechar
                   </button>
               </div>
             ) : (
@@ -417,7 +444,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                       <Loader2 size={20} className="animate-spin" />
                     ) : (
                       <>
-                        <span>Gerar Convite</span>
+                        <span>Enviar Convite</span>
                         <Send size={18} />
                       </>
                     )}
