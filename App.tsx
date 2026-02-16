@@ -84,7 +84,46 @@ const App: React.FC = () => {
     const token = params.get('token');
 
     if (token) {
-      // Find client with this token across all accountants
+      // 1. Try to decode as a "Stateless Token" (Base64 Encoded Data)
+      // This allows the invite to work even if the client is on a different machine than the accountant
+      try {
+        const jsonString = decodeURIComponent(escape(atob(token)));
+        const payload = JSON.parse(jsonString);
+        
+        // Payload expected: { nm, em, cp, an, aid, exp }
+        
+        if (payload.exp && payload.em && payload.aid) {
+            // Check expiration
+            if (payload.exp < Date.now()) {
+                setInviteError("Este link de convite expirou (validade de 7 dias). Solicite um novo ao seu contabilista.");
+            } else {
+                // Construct a temporary client object from the stateless token
+                const statelessClient: Client = {
+                    id: `invite_st_${Date.now()}`,
+                    companyName: payload.nm,
+                    email: payload.em,
+                    contactPerson: payload.cp,
+                    nif: '', // Not in token
+                    avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.nm)}&background=random`,
+                    status: 'PENDING',
+                    pendingDocs: 0,
+                    accountantId: payload.aid, // The accountant ID from the token
+                    inviteToken: token
+                };
+                
+                // Add accountant name hint if needed (not in Client type but useful for context)
+                // We'll trust the token data for the registration phase.
+                setPendingInviteClient(statelessClient);
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return; // Succcess, exit effect
+            }
+        }
+      } catch (e) {
+         // Token is likely not a stateless token (could be legacy UUID)
+         // Fallback to searching dataDB
+      }
+
+      // 2. Legacy Lookup: Find client with this token across all accountants in LOCAL DB
       let foundClient: Client | null = null;
       let accountantId: string | null = null;
 
@@ -99,23 +138,18 @@ const App: React.FC = () => {
       if (foundClient && accountantId) {
         const client = foundClient as Client;
         
-        // 1. Check Expiration
         if (client.inviteExpires && new Date(client.inviteExpires) < new Date()) {
           setInviteError("Este link de convite expirou (validade de 7 dias). Solicite um novo ao seu contabilista.");
-        } 
-        // 2. Check Status
-        else if (client.status !== 'PENDING' && client.status !== 'INVITED') {
+        } else if (client.status !== 'PENDING' && client.status !== 'INVITED') {
            setInviteError("Este convite já foi utilizado ou a conta já está ativa.");
         } else {
-           // Valid Invite
            setPendingInviteClient(client);
+           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } else {
+        // If we reached here, both stateless decode failed AND legacy lookup failed.
         setInviteError("Convite inválido ou não encontrado. Verifique se copiou o link corretamente.");
       }
-      
-      // Clear URL to clean up (optional, good for UX)
-      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [dataDB]);
 
@@ -175,28 +209,65 @@ const App: React.FC = () => {
 
       // Sync Invitation Logic (Associate Client to Accountant)
       if (pendingInviteClient) {
-         // Find which accountant sent this invite
-         const accountantId = Object.keys(dataDB).find(accId => 
-             dataDB[accId].some(c => c.id === pendingInviteClient.id)
+         // Logic to link client to accountant.
+         // Case A: Accountant exists on this machine (same browser simulation)
+         // Case B: Accountant doesn't exist (cross-device simulation via Stateless Token)
+
+         let accountantId = Object.keys(dataDB).find(accId => 
+             dataDB[accId].some(c => c.email === pendingInviteClient.email)
          );
+         
+         // If not found in local DB, check if the token carried the accountant ID
+         if (!accountantId && pendingInviteClient.accountantId) {
+             accountantId = pendingInviteClient.accountantId;
+         }
 
          if (accountantId) {
-             const updatedClientList = dataDB[accountantId].map(c => 
-                c.id === pendingInviteClient.id 
-                  ? { 
-                      ...c, 
-                      // Update Status to ACTIVE (Convite Aceite)
-                      status: 'ACTIVE' as const,
-                      // Clear invite data to invalidate link
-                      inviteToken: undefined,
-                      inviteExpires: undefined,
-                      // Sync name if changed during register
-                      companyName: newUser.name,
-                      avatarUrl: newUser.avatarUrl || c.avatarUrl
-                    } 
-                  : c
-             );
-             setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
+             // If we have data for this accountant (Case A)
+             if (dataDB[accountantId]) {
+                 const updatedClientList = dataDB[accountantId].map(c => 
+                    c.email === pendingInviteClient.email 
+                      ? { 
+                          ...c, 
+                          status: 'ACTIVE' as const,
+                          inviteToken: undefined,
+                          inviteExpires: undefined,
+                          companyName: newUser.name,
+                          avatarUrl: newUser.avatarUrl || c.avatarUrl
+                        } 
+                      : c
+                 );
+                 setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
+             } 
+             // Case B: We are on the Client's machine. We need to create a stub of the relationship 
+             // so the dashboard works, even if we can't update the Accountant's DB on the other machine.
+             else {
+                 const newClientRecord: Client = {
+                    ...pendingInviteClient,
+                    id: `c_local_${Date.now()}`,
+                    status: 'ACTIVE',
+                    companyName: newUser.name,
+                    avatarUrl: newUser.avatarUrl || pendingInviteClient.avatarUrl
+                 };
+                 
+                 // Create client list for this accountant ID locally
+                 setDataDB(prev => ({
+                     ...prev,
+                     [accountantId!]: [ newClientRecord ]
+                 }));
+
+                 // Ensure the Accountant User stub exists so branding works
+                 setUsersDB(prev => {
+                     if (prev.find(u => u.id === accountantId)) return prev;
+                     return [...prev, {
+                         id: accountantId!,
+                         name: 'O Seu Contabilista', // Default if we don't have name, but branding might fetch from ID
+                         email: 'contabilista@portal.pt',
+                         role: UserRole.ACCOUNTANT,
+                         status: 'ACTIVE'
+                     }];
+                 });
+             }
          }
          
          setPendingInviteClient(null);

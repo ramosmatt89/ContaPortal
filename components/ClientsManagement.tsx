@@ -71,11 +71,25 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setNewClient(prev => ({ ...prev, [name]: value }));
   };
 
-  const generateSecureInvite = () => {
-    const token = crypto.randomUUID();
+  // --- UPDATED: Stateless Token Generation ---
+  // Encodes invite data into the token so it works across devices without a backend
+  const generateSecureInvite = (data: { companyName: string, email: string, contactPerson: string }) => {
     const expires = new Date();
-    // 7 Days Expiration
-    expires.setDate(expires.getDate() + 7);
+    expires.setDate(expires.getDate() + 7); // 7 Days Expiration
+
+    // Payload to be encoded
+    const payload = {
+      nm: data.companyName,       // Name
+      em: data.email,             // Email
+      cp: data.contactPerson,     // Contact Person
+      an: currentUser.name,       // Accountant Name (for display on client side)
+      aid: currentUser.id,        // Accountant ID
+      exp: expires.getTime()      // Expiration Timestamp
+    };
+
+    // Encode to Base64 (with UTF-8 support)
+    const token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+
     return { token, expires: expires.toISOString() };
   };
 
@@ -103,7 +117,11 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
     setIsLoading(true);
 
-    const { token, expires } = generateSecureInvite();
+    const { token, expires } = generateSecureInvite({
+      companyName: newClient.companyName,
+      email: newClient.email,
+      contactPerson: newClient.contactPerson
+    });
 
     setTimeout(() => {
       const newId = `c${Date.now()}`;
@@ -134,26 +152,22 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const handleResendInvite = (client: Client) => {
-    // Regenerate token if expired or missing, otherwise use existing
-    let token = client.inviteToken;
-    let expires = client.inviteExpires;
-    
-    const isExpired = expires && new Date(expires) < new Date();
+    // Always regenerate token to ensure it follows new stateless format and has fresh expiry
+    const { token, expires } = generateSecureInvite({
+        companyName: client.companyName,
+        email: client.email,
+        contactPerson: client.contactPerson
+    });
 
-    if (!token || isExpired) {
-        const gen = generateSecureInvite();
-        token = gen.token;
-        expires = gen.expires;
-        onUpdateClient({
-            ...client,
-            status: 'PENDING',
-            inviteToken: token,
-            inviteExpires: expires
-        });
-        showToast("Novo token de 7 dias gerado.");
-    }
+    onUpdateClient({
+        ...client,
+        status: 'PENDING',
+        inviteToken: token,
+        inviteExpires: expires
+    });
+    showToast("Novo token de 7 dias gerado.");
 
-    const link = getLinkFromToken(token!);
+    const link = getLinkFromToken(token);
     setGeneratedLink(link);
     setPreviewClient(client);
     setIsModalOpen(true); // Open the preview modal again
