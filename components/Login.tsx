@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole } from '../types';
-import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight, Check, CheckSquare, Square } from 'lucide-react';
+import { UserRole, Client } from '../types';
+import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight, Check, CheckSquare, Square, XCircle } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, pass: string, rememberMe: boolean) => void;
@@ -8,47 +8,53 @@ interface LoginProps {
   isLoading?: boolean;
   error?: string | null;
   setError?: (error: string | null) => void;
+  // Validated Invitation Props
+  validatedInvite?: Client | null;
+  inviteError?: string | null;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, error, setError }) => {
+const Login: React.FC<LoginProps> = ({ 
+  onLogin, 
+  onRegister, 
+  isLoading = false, 
+  error, 
+  setError,
+  validatedInvite,
+  inviteError
+}) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [role, setRole] = useState<UserRole>(UserRole.ACCOUNTANT);
   
-  // Invitation State
-  const [inviterName, setInviterName] = useState<string | null>(null);
-  const [inviterLogo, setInviterLogo] = useState<string | null>(null);
-
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Check for Invite Params
+  // Check for Invite or Legacy Params
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    
-    // Support new short params (by, l, e) and old params (invitedBy, logo, email)
-    const invitedBy = params.get('by') || params.get('invitedBy');
-    const logo = params.get('l') || params.get('logo');
-    const invitedEmail = params.get('e') || params.get('email');
+    // 1. Handle Validated Token Invite (Priority)
+    if (validatedInvite) {
+      setIsRegistering(true);
+      setRole(UserRole.CLIENT);
+      setName(validatedInvite.companyName || validatedInvite.contactPerson);
+      setEmail(validatedInvite.email);
+    } 
+    // 2. Fallback to legacy URL params if no token validation happened
+    else if (!inviteError) {
+      const params = new URLSearchParams(window.location.search);
+      const invitedBy = params.get('by') || params.get('invitedBy');
+      const invitedEmail = params.get('e') || params.get('email');
 
-    if (invitedBy) {
-      setInviterName(invitedBy);
-      setRole(UserRole.CLIENT); // Force Client role if invited
-      setIsRegistering(true); // Go straight to register/activate
+      if (invitedBy) {
+        setRole(UserRole.CLIENT);
+        setIsRegistering(true);
+      }
+      if (invitedEmail) {
+        setEmail(invitedEmail);
+      }
     }
-    
-    if (logo) {
-       if (logo !== 'demo') {
-         setInviterLogo(logo);
-       }
-    }
-
-    if (invitedEmail) {
-      setEmail(invitedEmail);
-    }
-  }, []);
+  }, [validatedInvite, inviteError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +64,28 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
       onLogin(email, password, rememberMe);
     }
   };
+
+  if (inviteError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#EEF2F6]">
+         <div className="absolute top-[-10%] left-[-10%] w-[60vh] h-[60vh] bg-red-400/10 rounded-full mix-blend-multiply filter blur-[90px] animate-blob"></div>
+         
+         <div className="glass-panel p-10 rounded-[2.5rem] relative max-w-md w-full text-center">
+            <div className="w-20 h-20 bg-red-50 text-status-error rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+               <XCircle size={40} />
+            </div>
+            <h2 className="text-2xl font-extrabold text-neutral-dark mb-4">Problema no Convite</h2>
+            <p className="text-neutral-medium mb-8 text-lg">{inviteError}</p>
+            <button 
+              onClick={() => window.location.href = window.location.origin}
+              className="w-full py-4 rounded-2xl bg-neutral-dark text-white font-bold hover:opacity-90 transition-opacity"
+            >
+              Voltar à página inicial
+            </button>
+         </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#EEF2F6]">
@@ -70,28 +98,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
         
         {/* Header */}
         <div className="text-center mb-10">
-          {inviterName ? (
+          {validatedInvite ? (
             <div className="mb-6 animate-fade-in-up">
                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-neutral-light shadow-sm text-sm font-medium text-neutral-medium mb-4">
                  <span className="w-2 h-2 bg-status-success rounded-full animate-pulse"></span>
-                 Convite Especial
+                 Convite Validado
                </div>
                
-               {inviterLogo ? (
-                 <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-white shadow-xl shadow-brand-blue/10 p-1 flex items-center justify-center border border-white/50">
-                    <img src={inviterLogo} alt={inviterName} className="w-full h-full object-cover rounded-xl" />
-                 </div>
-               ) : (
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-2xl shadow-lg">
-                    {inviterName.charAt(0)}
-                  </div>
-               )}
+               <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-2xl shadow-lg">
+                    {validatedInvite.companyName.charAt(0)}
+               </div>
                
                <h2 className="text-3xl font-extrabold text-neutral-dark tracking-tight">
-                 {inviterName}
+                 Olá, {validatedInvite.contactPerson.split(' ')[0]}
                </h2>
                <p className="text-neutral-medium mt-1">
-                 convidou-o para o <strong>ContaPortal</strong>
+                 Defina a sua palavra-passe para aceder ao portal.
                </p>
             </div>
           ) : (
@@ -117,7 +139,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
           <form onSubmit={handleSubmit} className="space-y-5 relative z-10" autoComplete="on">
             
             {/* Role Selection (Only for Register & Not Invited) */}
-            {isRegistering && !inviterName && (
+            {isRegistering && !validatedInvite && (
               <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-white/40 rounded-2xl">
                 <button
                   type="button"
@@ -146,7 +168,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
 
             {isRegistering && (
               <div className="space-y-1.5">
-                <label htmlFor="name" className="text-xs font-bold text-neutral-dark ml-2">Nome Completo</label>
+                <label htmlFor="name" className="text-xs font-bold text-neutral-dark ml-2">Nome da Empresa / Completo</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
                   <input 
@@ -178,9 +200,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
                   placeholder="seu@email.com"
-                  readOnly={!!inviterName} // Read only if invited via email
+                  readOnly={!!validatedInvite} // Lock email if validated invite
                 />
-                {inviterName && <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-status-success" />}
+                {validatedInvite && <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-status-success" />}
               </div>
             </div>
 
@@ -223,7 +245,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
               ) : (
                 <>
                   <span>
-                    {isRegistering ? (inviterName ? 'Aceitar Convite' : 'Criar Conta') : 'Entrar'}
+                    {isRegistering ? (validatedInvite ? 'Concluir Registo' : 'Criar Conta') : 'Entrar'}
                   </span>
                   <ArrowRight size={20} />
                 </>
@@ -232,7 +254,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
           </form>
 
           {/* Footer Toggle (Hide if invited to keep flow focused) */}
-          {!inviterName && (
+          {!validatedInvite && (
             <div className="mt-8 pt-6 border-t border-white/40 text-center relative z-10">
               <p className="text-neutral-medium text-sm">
                 {isRegistering ? 'Já tem conta?' : 'Ainda não tem conta?'}

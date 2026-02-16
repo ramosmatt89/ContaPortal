@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 interface ClientsManagementProps {
-  currentUser: User; // Added to access accountant's branding info
+  currentUser: User; 
   clients: Client[];
   onAddClient: (client: Client) => void;
   onUpdateClient: (client: Client) => void;
@@ -66,65 +66,84 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setNewClient(prev => ({ ...prev, [name]: value }));
   };
 
-  const generateInviteLink = (email: string) => {
-    // Dynamic Branding: Use current accountant's name
-    const inviterName = currentUser.name; 
+  const generateSecureInvite = () => {
+    // Generate Secure UUID Token
+    const token = crypto.randomUUID();
     
-    // OPTIMIZATION: Only include logo if it is a SHORT URL (http). 
-    // Do NOT include Base64 (data:image) strings as they break 'mailto' links and make URLs huge.
-    const isBase64 = currentUser.avatarUrl?.startsWith('data:');
-    const inviterLogoParam = (currentUser.avatarUrl && !isBase64) 
-      ? `&l=${encodeURIComponent(currentUser.avatarUrl)}` 
-      : '';
+    // Set Expiration (48 Hours from now)
+    const expires = new Date();
+    expires.setHours(expires.getHours() + 48);
     
+    return { token, expires: expires.toISOString() };
+  };
+
+  const getLinkFromToken = (token: string) => {
+    // Current origin + requested path format
     const baseUrl = window.location.origin;
-    // New Short Format: ?by=Name&e=Email
-    return `${baseUrl}?by=${encodeURIComponent(inviterName)}${inviterLogoParam}&e=${encodeURIComponent(email)}`;
+    // Note: In a SPA without a real backend router, this path serves as a visual indicator. 
+    // App.tsx handles the actual token parsing regardless of path usually, but we stick to the prompt's format.
+    return `${baseUrl}/?token=${token}`;
   };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation: Check for duplicates
+    const alreadyExists = clients.some(c => c.email.toLowerCase() === newClient.email.toLowerCase() || c.nif === newClient.nif);
+    if (alreadyExists) {
+      alert("Já existe um cliente com este Email ou NIF.");
+      return;
+    }
+
     setIsLoading(true);
+
+    // 1. Generate Security Data
+    const { token, expires } = generateSecureInvite();
 
     // Simulate Server Delay + Email Sending
     setTimeout(() => {
       const newId = `c${Date.now()}`;
+      
+      // 2. Create Client Record
       const createdClient: Client = {
         id: newId,
         companyName: newClient.companyName,
-        nif: newClient.nif || 'N/A',
+        nif: newClient.nif, // Mandatory now
         email: newClient.email,
         contactPerson: newClient.contactPerson,
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
-        status: 'INVITED', // Default status for new invites
+        status: 'PENDING', // Prompt requested PENDING (or INVITED, sticking to PENDING/INVITED concept)
         pendingDocs: 0,
-        accountantId: currentUser.id
+        accountantId: currentUser.id,
+        inviteToken: token,
+        inviteExpires: expires
       };
 
       onAddClient(createdClient);
       
-      // Store email for success message
       setLastInvitedEmail(newClient.email);
       
-      // Generate the link for the backup manual copy
-      const link = generateInviteLink(newClient.email);
+      // 3. Generate Link for display
+      const link = getLinkFromToken(token);
       setGeneratedLink(link);
       
       setIsLoading(false);
-      showToast(`✉️ Convite enviado com sucesso para ${newClient.email}`);
+      showToast(`Convite enviado com sucesso.`);
     }, 1500);
   };
 
+  // Resend logic reusing the existing token if valid, or generating new one could be an enhancement
   const handleResendInvite = (client: Client) => {
-    const link = generateInviteLink(client.email);
+    if (!client.inviteToken) {
+       showToast("Erro: Token inválido. Remova e convide novamente.");
+       return;
+    }
+    const link = getLinkFromToken(client.inviteToken);
     const subject = `Convite: Portal ${currentUser.name}`;
-    const body = `Olá,\n\nFoi convidado para o portal de contabilidade de ${currentUser.name}.\n\nAceda através deste link:\n${link}\n\nObrigado.`;
+    const body = `Olá,\n\nVocê foi convidado para o portal de contabilidade.\n\nClique aqui para aceitar: ${link}\n\nO link expira em 48 horas.`;
     
-    // Trigger the user's default email client
-    // encoding logic ensures special characters don't break the mailto link
     window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
-    showToast(`✉️ App de e-mail aberta para ${client.email}`);
+    showToast(`App de e-mail aberta para ${client.email}`);
   };
 
   const handleCloseModal = () => {
@@ -138,7 +157,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     if (client.status === 'ACTIVE' || client.status === 'PENDING' || client.status === 'OVERDUE') newStatus = 'INACTIVE';
     else if (client.status === 'INACTIVE') newStatus = 'ACTIVE';
     
-    // Only update if status changed
     if (newStatus !== client.status) {
        onUpdateClient({ ...client, status: newStatus as any });
        showToast(newStatus === 'INACTIVE' ? 'Cliente desativado' : 'Cliente ativado');
@@ -147,11 +165,12 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
   const copyLink = (link: string) => {
     navigator.clipboard.writeText(link);
-    showToast('🔗 Link copiado para a área de transferência');
+    showToast('Link copiado para a área de transferência');
   }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'PENDING':
       case 'INVITED':
         return <span className="px-3 py-1 rounded-full bg-blue-100 text-brand-blue border border-blue-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><Mail size={12}/> Convite Pendente</span>;
       case 'INACTIVE':
@@ -166,7 +185,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   return (
     <div className="space-y-8 animate-fade-in-up pb-8 relative">
       
-      {/* Toast Notification */}
+      {/* Toast */}
       {toastMessage && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] bg-neutral-dark text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-fade-in-up">
           <CheckCircle size={18} className="text-status-success" />
@@ -174,12 +193,12 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         </div>
       )}
 
-      {/* Header & Controls */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
           <p className="text-neutral-medium text-lg max-w-xl leading-relaxed">
-            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Personalizado</span> automaticamente.
+            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Seguro</span>.
           </p>
         </div>
 
@@ -205,22 +224,20 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         </div>
       </div>
 
-      {/* Modern Card Grid (Mobile First) */}
+      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredClients.map(client => (
           <div key={client.id} className="glass-panel p-6 rounded-[2rem] relative group hover:-translate-y-1 transition-transform duration-300">
              
-             {/* Status Badge */}
              <div className="absolute top-6 right-6">
                {getStatusBadge(client.status)}
              </div>
 
-             {/* Header */}
              <div className="flex items-center gap-4 mb-6">
                <div className="relative">
                  <img src={client.avatarUrl} alt={client.companyName} className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-white" />
                  <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm">
-                   <div className={`w-3 h-3 rounded-full ${client.status === 'ACTIVE' ? 'bg-status-success' : client.status === 'INVITED' ? 'bg-brand-blue' : 'bg-neutral-medium'}`}></div>
+                   <div className={`w-3 h-3 rounded-full ${client.status === 'ACTIVE' ? 'bg-status-success' : client.status === 'PENDING' ? 'bg-brand-blue' : 'bg-neutral-medium'}`}></div>
                  </div>
                </div>
                <div>
@@ -229,7 +246,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                </div>
              </div>
 
-             {/* Info Grid */}
              <div className="bg-white/40 rounded-2xl p-4 mb-6 space-y-3">
                <div className="flex items-center gap-3">
                  <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
@@ -251,25 +267,24 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                </div>
              </div>
 
-             {/* Footer Actions */}
              <div className="flex items-center justify-between pt-2 border-t border-white/50">
                <span className="text-xs font-bold text-neutral-medium">
-                 {client.status === 'INVITED' ? 'Aguardando registo' : 'Acesso permitido'}
+                 {client.status === 'PENDING' ? 'Aguardando aceitação' : 'Acesso permitido'}
                </span>
                
                <div className="flex items-center gap-2">
-                 {client.status === 'INVITED' && (
+                 {(client.status === 'PENDING' || client.status === 'INVITED') && (
                     <>
                       <button 
-                        title="Enviar E-mail com Convite"
+                        title="Reenviar E-mail"
                         onClick={() => handleResendInvite(client)}
                         className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
                       >
                         <Send size={18} />
                       </button>
                       <button 
-                        title="Copiar Link Manualmente"
-                        onClick={() => copyLink(generateInviteLink(client.email))}
+                        title="Copiar Link"
+                        onClick={() => copyLink(getLinkFromToken(client.inviteToken || ''))}
                         className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-neutral-dark transition-colors"
                       >
                         <Copy size={18} />
@@ -309,7 +324,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
           </div>
         ))}
 
-        {/* Empty State */}
         {filteredClients.length === 0 && (
           <div className="col-span-full py-12 text-center">
             <div className="w-20 h-20 bg-neutral-light rounded-3xl flex items-center justify-center mx-auto mb-4 text-neutral-medium/50">
@@ -321,14 +335,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         )}
       </div>
 
-      {/* Add Client / Invite Modal */}
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-md transition-opacity" onClick={handleCloseModal}></div>
           
           <div className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden">
             
-            {/* Modal Header */}
             <div className="mb-6 text-center">
               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg transition-colors duration-500 ${
                   generatedLink 
@@ -343,18 +356,16 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
               <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
                 {generatedLink 
                   ? `Um e-mail automático foi enviado para ${lastInvitedEmail}.` 
-                  : 'Preencha os dados abaixo. Um convite será enviado automaticamente por e-mail.'}
+                  : 'Preencha os dados abaixo. Um token único de 48h será gerado.'}
               </p>
             </div>
 
             {generatedLink ? (
-              // Success State - Email Sent + Backup Link
               <div className="space-y-6 animate-fade-in-up">
-                 
                  <div className="bg-neutral-bg p-4 rounded-2xl border border-neutral-light relative">
                     <div className="flex justify-between items-center mb-2">
                        <p className="text-xs font-bold text-neutral-medium uppercase">Link de Cópia Manual</p>
-                       <span className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-lg">Backup</span>
+                       <span className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-lg">48 Horas</span>
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -369,14 +380,14 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                       </button>
                     </div>
                     <p className="text-[10px] text-neutral-medium mt-2">
-                      Utilize este link caso o cliente não receba o e-mail automático.
+                      Utilize este link se o cliente não receber o e-mail.
                     </p>
                  </div>
                  
                  <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex gap-3">
                    <div className="text-status-success mt-0.5"><CheckCircle size={18} /></div>
                    <p className="text-xs text-green-800 font-medium leading-relaxed">
-                     Cliente adicionado com sucesso à lista de espera. O status mudará quando o convite for aceite.
+                     Token seguro gerado. O estado do cliente mudará para 'Ativo' após aceitação.
                    </p>
                  </div>
 
@@ -388,10 +399,9 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                   </button>
               </div>
             ) : (
-              // Form State
               <form onSubmit={handleInvite} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Nome da Empresa</label>
+                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Nome da Empresa <span className="text-red-500">*</span></label>
                   <input 
                     type="text" 
                     name="companyName"
@@ -404,7 +414,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Pessoa de Contacto</label>
+                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Pessoa de Contacto <span className="text-red-500">*</span></label>
                   <input 
                     type="text" 
                     name="contactPerson"
@@ -418,10 +428,11 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF (Opcional)</label>
+                    <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
                       name="nif"
+                      required
                       pattern="[0-9]{9}"
                       title="NIF deve ter 9 dígitos"
                       value={newClient.nif}
@@ -431,7 +442,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     />
                   </div>
                   <div>
-                     <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Email</label>
+                     <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Email <span className="text-red-500">*</span></label>
                     <input 
                       type="email" 
                       name="email"

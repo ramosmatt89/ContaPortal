@@ -56,6 +56,10 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState('dashboard');
   const [clients, setClients] = useState<Client[]>([]);
+  
+  // Invitation State
+  const [pendingInviteClient, setPendingInviteClient] = useState<Client | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   // --- PERSISTENCE EFFECTS ---
 
@@ -73,6 +77,48 @@ const App: React.FC = () => {
       setClients([]);
     }
   }, [currentUser, dataDB]);
+
+  // --- TOKEN VALIDATION LOGIC ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    if (token) {
+      // Find client with this token across all accountants
+      let foundClient: Client | null = null;
+      let accountantId: string | null = null;
+
+      Object.keys(dataDB).forEach(accId => {
+        const client = dataDB[accId].find(c => c.inviteToken === token);
+        if (client) {
+          foundClient = client;
+          accountantId = accId;
+        }
+      });
+
+      if (foundClient && accountantId) {
+        const client = foundClient as Client;
+        
+        // 1. Check Expiration
+        if (client.inviteExpires && new Date(client.inviteExpires) < new Date()) {
+          setInviteError("Este convite expirou. Solicite um novo ao seu contabilista.");
+        } 
+        // 2. Check Status
+        else if (client.status !== 'PENDING' && client.status !== 'INVITED') {
+           // If already active, maybe redirect to login normally or show message
+           setInviteError("Este convite já foi utilizado.");
+        } else {
+           // Valid Invite
+           setPendingInviteClient(client);
+        }
+      } else {
+        setInviteError("Convite inválido ou não encontrado.");
+      }
+      
+      // Clear URL to clean up (optional, good for UX)
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [dataDB]);
 
   // --- AUTH HANDLERS ---
 
@@ -124,28 +170,54 @@ const App: React.FC = () => {
         setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
       }
 
-      // Sync Invitation Logic: If this user was invited as a client, activate them in the accountant's list
-      let wasInvited = false;
-      const updatedDataDB = { ...dataDB };
-      
-      Object.keys(updatedDataDB).forEach(accountantId => {
-        const accountantClients = updatedDataDB[accountantId];
-        const clientIndex = accountantClients.findIndex(c => c.email.toLowerCase() === email.toLowerCase());
-        
-        if (clientIndex > -1) {
-          wasInvited = true;
-          // Sync profile data to the accountant's view
-          updatedDataDB[accountantId][clientIndex] = {
-             ...updatedDataDB[accountantId][clientIndex],
-             status: 'ACTIVE',
-             companyName: newUser.name,
-             avatarUrl: newUser.avatarUrl || updatedDataDB[accountantId][clientIndex].avatarUrl
-          };
-        }
-      });
+      // Sync Invitation Logic: If this user was invited via Token or Email
+      if (pendingInviteClient) {
+         // Determine Accountant ID from dataDB
+         const accountantId = Object.keys(dataDB).find(accId => 
+             dataDB[accId].some(c => c.id === pendingInviteClient.id)
+         );
 
-      if (wasInvited) {
-        setDataDB(updatedDataDB);
+         if (accountantId) {
+             const updatedClientList = dataDB[accountantId].map(c => 
+                c.id === pendingInviteClient.id 
+                  ? { 
+                      ...c, 
+                      status: 'ACTIVE' as const, // Fix type issue
+                      inviteToken: undefined, // Consume token
+                      companyName: newUser.name, // Update name if user changed it
+                      avatarUrl: newUser.avatarUrl || c.avatarUrl
+                    } 
+                  : c
+             );
+             setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
+         }
+         
+         // Clear pending state
+         setPendingInviteClient(null);
+      } else {
+         // Fallback legacy logic for email matching without token
+         let wasInvited = false;
+         const updatedDataDB = { ...dataDB };
+         
+         Object.keys(updatedDataDB).forEach(accountantId => {
+           const accountantClients = updatedDataDB[accountantId];
+           const clientIndex = accountantClients.findIndex(c => c.email.toLowerCase() === email.toLowerCase());
+           
+           if (clientIndex > -1) {
+             wasInvited = true;
+             // Sync profile data to the accountant's view
+             updatedDataDB[accountantId][clientIndex] = {
+                ...updatedDataDB[accountantId][clientIndex],
+                status: 'ACTIVE',
+                companyName: newUser.name,
+                avatarUrl: newUser.avatarUrl || updatedDataDB[accountantId][clientIndex].avatarUrl
+             };
+           }
+         });
+
+         if (wasInvited) {
+           setDataDB(updatedDataDB);
+         }
       }
       
       setCurrentUser(newUser);
@@ -334,6 +406,9 @@ const App: React.FC = () => {
         isLoading={authLoading}
         error={authError}
         setError={setAuthError}
+        // Pass Invitation Props
+        validatedInvite={pendingInviteClient}
+        inviteError={inviteError}
       />
     );
   }
@@ -346,68 +421,26 @@ const App: React.FC = () => {
         {currentUser.role === UserRole.CLIENT ? (
           (() => {
             const accountantName = branding.name === 'ContaPortal' ? 'O Seu Contabilista' : branding.name;
-            // Filter docs for THIS client
             const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
-            // Filter obligations for THIS client
-            // We use currentUser.id (Client's User ID) to filter obligations
             const userObligations = obligationsDB.filter(o => o.clientId === currentUser.id);
 
             switch (currentView) {
               case 'dashboard':
-                return (
-                  <DashboardClient 
-                    user={currentUser} 
-                    documents={userDocuments}
-                    onUpload={handleUploadDocument}
-                    accountantName={accountantName}
-                    viewMode="dashboard"
-                    obligations={userObligations}
-                  />
-                );
+                return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="dashboard" obligations={userObligations} />;
               case 'documents':
-                 return (
-                  <DashboardClient 
-                    user={currentUser} 
-                    documents={userDocuments}
-                    onUpload={handleUploadDocument}
-                    accountantName={accountantName}
-                    viewMode="documents"
-                  />
-                 );
+                 return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="documents" />;
               case 'authorizations':
-                 return (
-                  <DashboardClient 
-                    user={currentUser} 
-                    documents={userDocuments}
-                    onUpload={handleUploadDocument}
-                    accountantName={accountantName}
-                    viewMode="authorizations"
-                    obligations={userObligations}
-                    onApproveObligation={handleApproveObligation}
-                  />
-                 );
+                 return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="authorizations" obligations={userObligations} onApproveObligation={handleApproveObligation} />;
               case 'profile':
                 return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               default:
-                return (
-                  <DashboardClient 
-                    user={currentUser} 
-                    documents={userDocuments}
-                    onUpload={handleUploadDocument}
-                    accountantName={accountantName}
-                    viewMode="dashboard"
-                  />
-                );
+                return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="dashboard" />;
             }
           })()
         ) : (
           (() => {
-             // Accountant View
-             // Get only docs from my clients
              const myClientEmails = clients.map(c => c.email);
              const myClientIds = clients.map(c => c.id);
-             
-             // Get Docs belonging to my clients
              const relevantDocs = docsDB.filter(doc => {
                 const docOwnerUser = usersDB.find(u => u.id === doc.clientId);
                 return docOwnerUser && myClientEmails.includes(docOwnerUser.email);
@@ -415,62 +448,17 @@ const App: React.FC = () => {
 
             switch (currentView) {
               case 'dashboard':
-                return (
-                  <DashboardAccountant 
-                    onNavigate={setCurrentView} 
-                    clients={clients} 
-                    user={currentUser}
-                    documents={relevantDocs}
-                    viewMode="overview"
-                    onValidate={handleValidateDocument}
-                  />
-                );
+                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} user={currentUser} documents={relevantDocs} viewMode="overview" onValidate={handleValidateDocument} />;
               case 'documents':
-                 return (
-                  <DashboardAccountant 
-                    onNavigate={setCurrentView} 
-                    clients={clients} 
-                    user={currentUser}
-                    documents={relevantDocs}
-                    viewMode="documents"
-                    onValidate={handleValidateDocument}
-                  />
-                );
+                 return <DashboardAccountant onNavigate={setCurrentView} clients={clients} user={currentUser} documents={relevantDocs} viewMode="documents" onValidate={handleValidateDocument} />;
               case 'clients':
-                return (
-                  <ClientsManagement 
-                    currentUser={currentUser} // Pass Accountant User to Generate Branded Invites
-                    clients={clients} 
-                    onAddClient={handleAddClient}
-                    onUpdateClient={handleUpdateClient}
-                    onDeleteClient={handleDeleteClient}
-                  />
-                );
+                return <ClientsManagement currentUser={currentUser} clients={clients} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onDeleteClient={handleDeleteClient} />;
               case 'settings':
                   return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               case 'obligations':
-                  return (
-                    <DashboardAccountant 
-                      onNavigate={setCurrentView} 
-                      clients={clients} 
-                      user={currentUser}
-                      documents={relevantDocs}
-                      viewMode="obligations" 
-                      onAddObligation={handleAddObligation}
-                      obligations={obligationsDB.filter(o => myClientIds.includes(o.clientId) || clients.some(c => c.email === o.clientId))}
-                    />
-                  );
+                  return <DashboardAccountant onNavigate={setCurrentView} clients={clients} user={currentUser} documents={relevantDocs} viewMode="obligations" onAddObligation={handleAddObligation} obligations={obligationsDB.filter(o => myClientIds.includes(o.clientId) || clients.some(c => c.email === o.clientId))} />;
               default:
-                return (
-                  <DashboardAccountant 
-                    onNavigate={setCurrentView} 
-                    clients={clients} 
-                    user={currentUser}
-                    documents={relevantDocs}
-                    viewMode="overview"
-                    onValidate={handleValidateDocument}
-                  />
-                );
+                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} user={currentUser} documents={relevantDocs} viewMode="overview" onValidate={handleValidateDocument} />;
             }
           })()
         )}
@@ -479,13 +467,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout 
-      user={currentUser}
-      currentView={currentView} 
-      onNavigate={setCurrentView}
-      onLogout={handleLogout}
-      branding={branding}
-    >
+    <Layout user={currentUser} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} branding={branding}>
       {renderContent()}
     </Layout>
   );

@@ -50,6 +50,9 @@ export interface Client {
   pendingDocs: number;
   nextTaxDeadline?: string;
   accountantId: string;
+  // Secure Invitation Fields
+  inviteToken?: string;
+  inviteExpires?: string; // ISO Date string
 }
 
 export interface Notification {
