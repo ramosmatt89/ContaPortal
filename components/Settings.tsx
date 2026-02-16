@@ -59,7 +59,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
         {/* Profile Card */}
         <div className="lg:col-span-2 glass-panel p-8 rounded-[2.5rem] relative">
           <h3 className="font-bold text-xl text-neutral-dark mb-6">
-            {isAccountant ? 'Dados do Contabilista' : 'Dados da Empresa'}
+            {isAccountant ? 'Dados do Escritório (Marca)' : 'Dados da Empresa'}
           </h3>
           
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -115,7 +115,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                      )}
                    </div>
                    <p className="text-xs text-neutral-medium max-w-xs leading-relaxed">
-                     Recomendado: Imagem quadrada (PNG, JPG). Será visível {isAccountant ? 'no topo do dashboard e nos convites enviados.' : 'para o seu contabilista e no seu dashboard.'}
+                     Recomendado: Imagem quadrada (PNG, JPG). {isAccountant ? 'Esta imagem aparecerá no portal dos seus clientes.' : 'Esta imagem aparecerá no dashboard do seu contabilista.'}
                    </p>
                  </div>
                </div>
@@ -133,6 +133,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onUpdateUser }) => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
+                  placeholder={isAccountant ? "Ex: Silva Contabilidade" : "Ex: Minha Empresa Lda"}
                 />
               </div>
             </div>

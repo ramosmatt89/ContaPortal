@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Client } from '../types';
+import { Client, User } from '../types';
 import { 
   Search, 
   Plus, 
@@ -10,7 +10,7 @@ import {
   Loader2, 
   Send,
   Copy,
-  User,
+  User as UserIcon,
   MoreVertical,
   ShieldAlert,
   RefreshCw,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 interface ClientsManagementProps {
+  currentUser: User; // Added to access accountant's branding info
   clients: Client[];
   onAddClient: (client: Client) => void;
   onUpdateClient: (client: Client) => void;
@@ -25,6 +26,7 @@ interface ClientsManagementProps {
 }
 
 const ClientsManagement: React.FC<ClientsManagementProps> = ({ 
+  currentUser,
   clients, 
   onAddClient, 
   onUpdateClient, 
@@ -65,8 +67,10 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const generateInviteLink = (email: string) => {
-    const inviterName = "O Seu Contabilista"; 
-    const inviterLogoParam = "&logo=demo";
+    // Dynamic Branding: Use current accountant's name and logo
+    const inviterName = currentUser.name; 
+    const inviterLogoParam = currentUser.avatarUrl ? `&logo=${encodeURIComponent(currentUser.avatarUrl)}` : '';
+    
     // Using current origin to make link work in dev/preview environment
     const baseUrl = window.location.origin;
     return `${baseUrl}?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(email)}`;
@@ -88,7 +92,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
         status: 'INVITED', // Default status for new invites
         pendingDocs: 0,
-        accountantId: 'current_user'
+        accountantId: currentUser.id
       };
 
       onAddClient(createdClient);
@@ -107,8 +111,8 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
   const handleResendInvite = (client: Client) => {
     const link = generateInviteLink(client.email);
-    const subject = "Convite para o ContaPortal";
-    const body = `Olá,\n\nAqui está o seu link de acesso para o portal de contabilidade:\n\n${link}\n\nObrigado.`;
+    const subject = `Convite para o portal de ${currentUser.name}`;
+    const body = `Olá,\n\nAqui está o seu link de acesso para o portal de contabilidade de ${currentUser.name}:\n\n${link}\n\nObrigado.`;
     
     // Trigger the user's default email client
     window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -168,7 +172,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         <div>
           <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
           <p className="text-neutral-medium text-lg max-w-xl leading-relaxed">
-            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite por Email</span> automaticamente.
+            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Personalizado</span> automaticamente.
           </p>
         </div>
 
@@ -222,7 +226,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
              <div className="bg-white/40 rounded-2xl p-4 mb-6 space-y-3">
                <div className="flex items-center gap-3">
                  <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
-                   <User size={14} />
+                   <UserIcon size={14} />
                  </div>
                  <div className="flex-1 overflow-hidden">
                    <p className="text-xs text-neutral-medium font-bold uppercase">Contacto</p>

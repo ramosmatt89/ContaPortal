@@ -302,13 +302,14 @@ const App: React.FC = () => {
       };
     } else if (currentUser.role === UserRole.CLIENT) {
       // Client sees their Accountant's brand
-      // Find the accountant who owns this client
+      // Find the accountant who owns this client based on dataDB relationship
       const allClients = Object.values(dataDB).flat() as Client[];
       const clientRecord = allClients.find(c => c.email === currentUser.email);
       
       if (clientRecord) {
+         // Find which accountant list contains this client
          const accountantId = Object.keys(dataDB).find(accId => 
-           dataDB[accId].some(c => c.id === clientRecord.id)
+           dataDB[accId].some(c => c.id === clientRecord.id || c.email === clientRecord.email)
          );
          
          if (accountantId) {
@@ -348,17 +349,8 @@ const App: React.FC = () => {
             // Filter docs for THIS client
             const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
             // Filter obligations for THIS client
-            // We need to map currentUser -> Client Record -> ID used in obligations
-            // Currently simplified: currentUser.id IS the clientId in docs, but obligations need to match logic.
-            // In handleAddObligation, we will store the Client ID from the Accountant's list. 
-            // We need to ensure we find the correct ID correspondence. 
-            // For now, let's assume obligationsDB stores the Accountant's Client ID reference.
-            // Ideally, we find the client record in dataDB to get the ID.
-            
-            let myClientId = currentUser.id; // Default
-            // Try to find if I am listed in an accountant's DB with a different ID (unlikely in this simplified model, but good practice)
-            
-            const userObligations = obligationsDB.filter(o => o.clientId === myClientId || o.clientId === currentUser.email); // Fallback to email matching if needed
+            // We use currentUser.id (Client's User ID) to filter obligations
+            const userObligations = obligationsDB.filter(o => o.clientId === currentUser.id);
 
             switch (currentView) {
               case 'dashboard':
@@ -415,8 +407,7 @@ const App: React.FC = () => {
              const myClientEmails = clients.map(c => c.email);
              const myClientIds = clients.map(c => c.id);
              
-             // Get Docs belonging to my clients (Match by User ID -> Client Record -> Email/ID)
-             // Simplified: We need to map Doc.clientId (User ID) to verify it is one of my clients.
+             // Get Docs belonging to my clients
              const relevantDocs = docsDB.filter(doc => {
                 const docOwnerUser = usersDB.find(u => u.id === doc.clientId);
                 return docOwnerUser && myClientEmails.includes(docOwnerUser.email);
@@ -448,6 +439,7 @@ const App: React.FC = () => {
               case 'clients':
                 return (
                   <ClientsManagement 
+                    currentUser={currentUser} // Pass Accountant User to Generate Branded Invites
                     clients={clients} 
                     onAddClient={handleAddClient}
                     onUpdateClient={handleUpdateClient}
@@ -463,7 +455,7 @@ const App: React.FC = () => {
                       clients={clients} 
                       user={currentUser}
                       documents={relevantDocs}
-                      viewMode="obligations" // Reuse dashboard component with specific mode
+                      viewMode="obligations" 
                       onAddObligation={handleAddObligation}
                       obligations={obligationsDB.filter(o => myClientIds.includes(o.clientId) || clients.some(c => c.email === o.clientId))}
                     />

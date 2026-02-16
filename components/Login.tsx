@@ -58,7 +58,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-neutral-bg">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#EEF2F6]">
       
       {/* Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[60vh] h-[60vh] bg-brand-blue/20 rounded-full mix-blend-multiply filter blur-[90px] animate-blob"></div>
