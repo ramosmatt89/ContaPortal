@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ContaPortal - Gestão Contabilística</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                blue: '#007BFF', // Electric Blue
+                purple: '#8A2BE2', // Vibrant Purple
+              },
+              status: {
+                success: '#28A745',
+                warning: '#FFC107',
+                error: '#DC3545',
+              },
+              neutral: {
+                bg: '#F8F9FA',
+                dark: '#343A40',
+                medium: '#6C757D',
+                light: '#E9ECEF',
+              }
+            },
+            animation: {
+              'blob': 'blob 10s infinite',
+              'fade-in-up': 'fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'float': 'float 5s ease-in-out infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -40px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              },
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-8px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        /* Neutral BG #F8F9FA with soft Blue/Purple tints */
+        background-color: #F8F9FA;
+        background-image: 
+          radial-gradient(at 10% 10%, rgba(0, 123, 255, 0.1) 0px, transparent 50%),
+          radial-gradient(at 90% 10%, rgba(138, 43, 226, 0.08) 0px, transparent 50%),
+          radial-gradient(at 50% 90%, rgba(0, 123, 255, 0.05) 0px, transparent 50%),
+          linear-gradient(180deg, #F8F9FA 0%, #E9ECEF 100%);
+        background-attachment: fixed;
+        background-size: cover;
+        -webkit-font-smoothing: antialiased;
+        color: #343A40;
+      }
+
+      /* LIQUID GLASS ENGINE - UPDATED RGBA */
+      
+      /* Standard Panel: White Translucent rgba(255,255,255,0.3) */
+      .glass-panel {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%);
+        backdrop-filter: blur(20px) saturate(110%);
+        -webkit-backdrop-filter: blur(20px) saturate(110%);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-top: 1px solid rgba(255, 255, 255, 0.7);
+        border-left: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 
+          0 8px 32px 0 rgba(0, 123, 255, 0.05),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+      }
+
+      /* Darker/Frosted Panel (for contrast areas like sidebars) */
+      .glass-panel-dark {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 
+          0 20px 40px -10px rgba(138, 43, 226, 0.08),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+      }
+
+      /* Interactive Glass Card */
+      .glass-card {
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.2) 100%);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.03);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .glass-card:hover {
+        transform: translateY(-5px) scale(1.01);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 100%);
+        box-shadow: 0 20px 40px -5px rgba(0, 123, 255, 0.15);
+        border-color: rgba(0, 123, 255, 0.3);
+      }
+
+      /* Liquid Vivid Button: Blue #007BFF -> Purple #8A2BE2 on Hover */
+      .btn-liquid {
+        background: #007BFF;
+        background: linear-gradient(135deg, #007BFF 0%, #0069d9 100%);
+        box-shadow: 0 10px 20px -10px rgba(0, 123, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s ease;
+      }
+      .btn-liquid::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(135deg, #8A2BE2 0%, #6f42c1 100%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
+      }
+      .btn-liquid span, .btn-liquid svg {
+        position: relative;
+        z-index: 10;
+      }
+      .btn-liquid:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px -10px rgba(138, 43, 226, 0.5);
+      }
+      .btn-liquid:hover::before {
+        opacity: 1;
+      }
+      .btn-liquid:active {
+        transform: translateY(-1px);
+      }
+
+      /* Text Colors override */
+      h1, h2, h3, h4, h5, h6 { color: #343A40; }
+      p, span, div { color: inherit; }
+      
+      .text-neutral-dark { color: #343A40; }
+      .text-neutral-medium { color: #6C757D; }
+
+      /* Scrollbar */
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
+    "recharts": "https://esm.sh/recharts@^3.7.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
