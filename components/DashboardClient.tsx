@@ -1,10 +1,10 @@
 import React from 'react';
-import { MOCK_OBLIGATIONS, MOCK_DOCS } from '../constants';
-import { ArrowUpRight, FileText, CheckCircle, Clock, UploadCloud, ChevronRight, AlertTriangle } from 'lucide-react';
+import { DEMO_OBLIGATIONS, DEMO_DOCS } from '../constants';
+import { ArrowUpRight, FileText, CheckCircle, Clock, UploadCloud, ChevronRight } from 'lucide-react';
 import { DocStatus } from '../types';
 
 const DashboardClient: React.FC = () => {
-  const pendingDocs = MOCK_DOCS.filter(d => d.status === DocStatus.PENDING).length;
+  const pendingDocs = DEMO_DOCS.filter(d => d.status === DocStatus.PENDING).length;
 
   return (
     <div className="space-y-8 animate-fade-in-up pb-8">
@@ -72,7 +72,7 @@ const DashboardClient: React.FC = () => {
         </div>
         
         <div className="grid gap-4 md:grid-cols-3">
-          {MOCK_OBLIGATIONS.map((ob, idx) => (
+          {DEMO_OBLIGATIONS.map((ob, idx) => (
             <div 
               key={ob.id} 
               className="glass-card bg-white/60 p-7 rounded-[2rem] border border-white/60 relative overflow-hidden"
@@ -120,7 +120,7 @@ const DashboardClient: React.FC = () => {
         </div>
 
         <div className="glass-panel-dark rounded-[2.5rem] overflow-hidden p-3">
-          {MOCK_DOCS.map((doc, idx) => (
+          {DEMO_DOCS.map((doc, idx) => (
             <div key={doc.id} className="group p-5 rounded-[1.5rem] flex items-center justify-between hover:bg-white/60 transition-all border border-transparent hover:border-white/50 mb-1 last:mb-0 cursor-pointer">
               <div className="flex items-center gap-5">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${

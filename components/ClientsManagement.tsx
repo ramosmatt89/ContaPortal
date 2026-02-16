@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { MOCK_CLIENTS } from '../constants';
 import { Client } from '../types';
 import { 
   Search, 
@@ -16,13 +15,19 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
-const ClientsManagement: React.FC = () => {
-  // Simulate current logged-in accountant ID
-  const CURRENT_ACCOUNTANT_ID = 'a1';
+interface ClientsManagementProps {
+  clients: Client[];
+  onAddClient: (client: Client) => void;
+  onUpdateClient: (client: Client) => void;
+  onDeleteClient: (id: string) => void;
+}
 
-  const [clients, setClients] = useState<Client[]>(
-    MOCK_CLIENTS.filter(c => c.accountantId === CURRENT_ACCOUNTANT_ID)
-  );
+const ClientsManagement: React.FC<ClientsManagementProps> = ({ 
+  clients, 
+  onAddClient, 
+  onUpdateClient, 
+  onDeleteClient 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,14 +69,14 @@ const ClientsManagement: React.FC = () => {
         avatarUrl: `https://picsum.photos/seed/${newId}/200`,
         status: 'INVITED', // Default status for new invites
         pendingDocs: 0,
-        accountantId: CURRENT_ACCOUNTANT_ID
+        accountantId: 'current_user' // In real app, this comes from auth
       };
 
-      setClients([createdClient, ...clients]);
+      onAddClient(createdClient);
       setIsLoading(false);
       
       // Instead of closing, show the generated link
-      setGeneratedLink(`https://contaportal.pt/invite/${newId}?ref=${CURRENT_ACCOUNTANT_ID}`);
+      setGeneratedLink(`https://contaportal.pt/invite/${newId}?ref=invitation`);
     }, 1500);
   };
 
@@ -81,19 +86,14 @@ const ClientsManagement: React.FC = () => {
     setNewClient({ companyName: '', nif: '', email: '', contactPerson: '' });
   };
 
-  const toggleClientStatus = (clientId: string, currentStatus: string) => {
-    setClients(clients.map(c => {
-      if (c.id === clientId) {
-        if (currentStatus === 'ACTIVE' || currentStatus === 'PENDING' || currentStatus === 'OVERDUE') return { ...c, status: 'INACTIVE' };
-        if (currentStatus === 'INACTIVE') return { ...c, status: 'ACTIVE' };
-      }
-      return c;
-    }));
-  };
-
-  const deleteClient = (clientId: string) => {
-    if (window.confirm('Tem a certeza que deseja remover este cliente? Esta ação é irreversível.')) {
-      setClients(clients.filter(c => c.id !== clientId));
+  const toggleClientStatus = (client: Client) => {
+    let newStatus = client.status;
+    if (client.status === 'ACTIVE' || client.status === 'PENDING' || client.status === 'OVERDUE') newStatus = 'INACTIVE';
+    else if (client.status === 'INACTIVE') newStatus = 'ACTIVE';
+    
+    // Only update if status changed
+    if (newStatus !== client.status) {
+       onUpdateClient({ ...client, status: newStatus as any });
     }
   };
 
@@ -223,7 +223,7 @@ const ClientsManagement: React.FC = () => {
 
                  <button 
                     title={client.status === 'INACTIVE' ? 'Ativar' : 'Desativar'}
-                    onClick={() => toggleClientStatus(client.id, client.status)}
+                    onClick={() => toggleClientStatus(client)}
                     className={`p-2 rounded-xl transition-colors ${
                       client.status === 'INACTIVE' 
                         ? 'bg-green-50 text-status-success hover:bg-green-100' 
@@ -235,7 +235,11 @@ const ClientsManagement: React.FC = () => {
                   
                   <button 
                     title="Remover"
-                    onClick={() => deleteClient(client.id)}
+                    onClick={() => {
+                       if (window.confirm('Tem a certeza que deseja remover este cliente? Esta ação é irreversível.')) {
+                         onDeleteClient(client.id);
+                       }
+                    }}
                     className="p-2 rounded-xl hover:bg-red-50 text-neutral-medium hover:text-status-error transition-colors"
                   >
                     <Trash2 size={18} />

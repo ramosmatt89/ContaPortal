@@ -1,6 +1,6 @@
 import React from 'react';
-import { MOCK_CLIENTS } from '../constants';
-import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, X, Search, Filter } from 'lucide-react';
+import { Client } from '../types';
+import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, Search, Filter, Plus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const data = [
@@ -14,18 +14,41 @@ const data = [
 
 interface DashboardAccountantProps {
   onNavigate: (view: string) => void;
+  clients: Client[];
 }
 
-const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate }) => {
+const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, clients }) => {
+  
+  if (clients.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-fade-in-up">
+        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-brand-blue/10 mb-8 border border-white/60">
+          <Users size={40} className="text-brand-blue" />
+        </div>
+        <h2 className="text-3xl font-bold text-neutral-dark mb-4">Bem-vindo ao seu Escritório Digital</h2>
+        <p className="text-neutral-medium max-w-md mb-8 text-lg leading-relaxed">
+          Ainda não tem clientes associados. Comece por adicionar a sua primeira empresa para gerir documentos e obrigações.
+        </p>
+        <button 
+          onClick={() => onNavigate('clients')}
+          className="btn-liquid px-8 py-4 rounded-2xl text-white font-bold text-lg flex items-center gap-3 shadow-lg hover:shadow-brand-blue/30 hover:-translate-y-1 transition-transform"
+        >
+          <Plus size={24} />
+          <span>Adicionar Primeiro Cliente</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-fade-in-up pb-8">
       
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { icon: Users, label: 'Total Clientes', value: MOCK_CLIENTS.length, trend: '+2%', color: 'brand-blue', badgeColor: 'bg-blue-100 text-brand-blue border-blue-200' },
-          { icon: FileCheck, label: 'Docs Pendentes', value: 14, trend: 'Ação Necessária', color: 'status-warning', badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-          { icon: AlertCircle, label: 'Alertas Fiscais', value: 3, trend: 'Urgente', color: 'status-error', badgeColor: 'bg-red-100 text-status-error border-red-200' }
+          { icon: Users, label: 'Total Clientes', value: clients.length, trend: 'Ativos', color: 'brand-blue', badgeColor: 'bg-blue-100 text-brand-blue border-blue-200' },
+          { icon: FileCheck, label: 'Docs Pendentes', value: clients.reduce((acc, c) => acc + c.pendingDocs, 0), trend: 'Ação Necessária', color: 'status-warning', badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+          { icon: AlertCircle, label: 'Alertas Fiscais', value: clients.filter(c => c.status === 'OVERDUE').length, trend: 'Urgente', color: 'status-error', badgeColor: 'bg-red-100 text-status-error border-red-200' }
         ].map((kpi, idx) => (
           <div key={idx} className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-white transition-colors">
             <div className={`absolute right-0 top-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity text-${kpi.color}`}>
@@ -123,7 +146,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate })
             </button>
           </div>
           <div className="space-y-3">
-            {MOCK_CLIENTS.slice(0, 4).map(client => (
+            {clients.slice(0, 4).map(client => (
               <div key={client.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/60 transition-colors cursor-pointer group border border-transparent hover:border-white/50">
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -185,7 +208,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate })
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-light/50">
-              {MOCK_CLIENTS.map(client => (
+              {clients.map(client => (
                 <tr key={client.id} className="hover:bg-blue-50/30 transition-colors group">
                   <td className="px-8 py-5 font-bold text-neutral-dark">{client.companyName}</td>
                   <td className="px-6 py-5">

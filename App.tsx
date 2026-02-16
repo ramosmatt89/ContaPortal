@@ -1,10 +1,9 @@
 import React, { useState, Suspense, lazy } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
-import { UserRole } from './types';
+import { UserRole, Client } from './types';
 
 // Lazy loading heavy dashboard components to reduce initial bundle size
-// This ensures that 'recharts' and other heavy dependencies are not loaded on the Login screen
 const DashboardClient = lazy(() => import('./components/DashboardClient'));
 const DashboardAccountant = lazy(() => import('./components/DashboardAccountant'));
 const ClientsManagement = lazy(() => import('./components/ClientsManagement'));
@@ -22,14 +21,37 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(UserRole.NONE);
   const [currentView, setCurrentView] = useState('dashboard');
+  
+  // State for Accountant Data (Session Isolated)
+  // Initially empty to satisfy requirements: "Ao criar nova conta, dashboard vazio"
+  const [clients, setClients] = useState<Client[]>([]);
 
   const handleLogin = (selectedRole: UserRole) => {
     setRole(selectedRole);
     setCurrentView('dashboard');
+    // If we wanted to simulate a recurring user, we could load data here.
+    // For now, we stick to the prompt: Accountant starts with empty state.
+    if (selectedRole === UserRole.ACCOUNTANT) {
+      setClients([]); 
+    }
   };
 
   const handleLogout = () => {
     setRole(UserRole.NONE);
+    setClients([]); // Clear session data
+  };
+
+  // Client CRUD Operations
+  const handleAddClient = (newClient: Client) => {
+    setClients(prev => [newClient, ...prev]);
+  };
+
+  const handleUpdateClient = (updatedClient: Client) => {
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+
+  const handleDeleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
   };
 
   if (role === UserRole.NONE) {
@@ -58,9 +80,14 @@ const App: React.FC = () => {
           (() => {
             switch (currentView) {
               case 'dashboard':
-                return <DashboardAccountant onNavigate={setCurrentView} />;
+                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} />;
               case 'clients':
-                return <ClientsManagement />;
+                return <ClientsManagement 
+                  clients={clients} 
+                  onAddClient={handleAddClient}
+                  onUpdateClient={handleUpdateClient}
+                  onDeleteClient={handleDeleteClient}
+                />;
               case 'documents':
                 return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Validação em Lote em construção 🚧</div>;
               case 'obligations':
@@ -68,7 +95,7 @@ const App: React.FC = () => {
               case 'settings':
                   return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Configurações do Escritório em construção 🚧</div>;
               default:
-                return <DashboardAccountant onNavigate={setCurrentView} />;
+                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} />;
             }
           })()
         )}

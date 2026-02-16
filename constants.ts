@@ -1,6 +1,6 @@
 import { Client, Document, DocStatus, DocType, TaxObligation } from './types';
 
-export const MOCK_CLIENTS: Client[] = [
+export const DEMO_CLIENTS: Client[] = [
   {
     id: 'c1',
     companyName: 'TechSolutions Lda',
@@ -11,7 +11,7 @@ export const MOCK_CLIENTS: Client[] = [
     status: 'ACTIVE',
     pendingDocs: 2,
     nextTaxDeadline: '2024-06-20',
-    accountantId: 'a1'
+    accountantId: 'demo_acc'
   },
   {
     id: 'c2',
@@ -23,7 +23,7 @@ export const MOCK_CLIENTS: Client[] = [
     status: 'OVERDUE',
     pendingDocs: 5,
     nextTaxDeadline: '2024-06-15',
-    accountantId: 'a1'
+    accountantId: 'demo_acc'
   },
   {
     id: 'c3',
@@ -34,7 +34,7 @@ export const MOCK_CLIENTS: Client[] = [
     avatarUrl: 'https://picsum.photos/202',
     status: 'INVITED',
     pendingDocs: 0,
-    accountantId: 'a1'
+    accountantId: 'demo_acc'
   },
   {
     id: 'c4',
@@ -45,11 +45,11 @@ export const MOCK_CLIENTS: Client[] = [
     avatarUrl: 'https://picsum.photos/203',
     status: 'INACTIVE',
     pendingDocs: 0,
-    accountantId: 'a1'
+    accountantId: 'demo_acc'
   }
 ];
 
-export const MOCK_DOCS: Document[] = [
+export const DEMO_DOCS: Document[] = [
   {
     id: 'd1',
     title: 'Fatura Fornecedor XYZ',
@@ -86,7 +86,7 @@ export const MOCK_DOCS: Document[] = [
   }
 ];
 
-export const MOCK_OBLIGATIONS: TaxObligation[] = [
+export const DEMO_OBLIGATIONS: TaxObligation[] = [
   {
     id: 't1',
     name: 'IVA - Declaração Periódica',
