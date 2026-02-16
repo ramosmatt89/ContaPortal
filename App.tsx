@@ -1,8 +1,7 @@
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
-import { UserRole, Client, User } from './types';
-import { DEMO_CLIENTS } from './constants';
+import { UserRole, Client, User, Document, DocStatus, DocType } from './types';
 
 // Lazy loading heavy dashboard components
 const DashboardClient = lazy(() => import('./components/DashboardClient'));
@@ -35,6 +34,12 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : {};
   });
 
+  // Load Documents Database from LocalStorage (NEW)
+  const [docsDB, setDocsDB] = useState<Document[]>(() => {
+    const saved = localStorage.getItem('cp_docsDB');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Load Current Session
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('cp_currentUser');
@@ -57,6 +62,11 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('cp_dataDB', JSON.stringify(dataDB));
   }, [dataDB]);
+
+  // Save Docs DB whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cp_docsDB', JSON.stringify(docsDB));
+  }, [docsDB]);
 
   // Load Clients for the current user when logged in
   useEffect(() => {
@@ -87,13 +97,6 @@ const App: React.FC = () => {
           if (rememberMe) {
             localStorage.setItem('cp_currentUser', JSON.stringify(user));
           } else {
-            // For session-only, we could use sessionStorage, but for this prototype
-            // we will just set state. If user refreshes without rememberMe, they lose session.
-            // However, the initial state logic above reads from localStorage.
-            // To support non-persistence, we'd need to clear localStorage on window close, 
-            // which is tricky in React. 
-            // For this 'SaaS' prototype, we'll treat "Remember Me" as "Persist to LocalStorage".
-            // If not checked, we won't save to LS (or remove it if it was there).
             localStorage.removeItem('cp_currentUser'); 
           }
 
@@ -204,6 +207,46 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUploadDocument = (file: File) => {
+    if (!currentUser) return;
+
+    const newDoc: Document = {
+      id: `doc_${Date.now()}`,
+      title: file.name,
+      type: DocType.INVOICE, // Defaulting to invoice for simplicity
+      date: new Date().toISOString(),
+      status: DocStatus.PENDING,
+      clientId: currentUser.id, // Associate with current user
+      fileUrl: URL.createObjectURL(file) // Mock URL for preview
+    };
+
+    setDocsDB(prev => [newDoc, ...prev]);
+    
+    // If user is a Client, also update the client record pendingDocs count if possible
+    // This requires finding which "Client" record corresponds to "User" record via Email
+    const allClients = Object.values(dataDB).flat() as Client[];
+    const clientRecord = allClients.find(c => c.email === currentUser.email);
+    
+    if (clientRecord) {
+       // We need to update the client in the specific accountant's list
+       // Find accountant ID
+       const accountantId = Object.keys(dataDB).find(accId => 
+         dataDB[accId].some(c => c.id === clientRecord.id)
+       );
+
+       if (accountantId) {
+          const updatedClientList = dataDB[accountantId].map(c => 
+            c.id === clientRecord.id ? { ...c, pendingDocs: c.pendingDocs + 1 } : c
+          );
+          
+          setDataDB(prev => ({
+            ...prev,
+            [accountantId]: updatedClientList
+          }));
+       }
+    }
+  };
+
   if (!currentUser) {
     return (
       <Login 
@@ -221,17 +264,62 @@ const App: React.FC = () => {
       <Suspense fallback={<LoadingFallback />}>
         {currentUser.role === UserRole.CLIENT ? (
           (() => {
+            // Find Accountant Name for the Client
+            const allClients = Object.values(dataDB).flat() as Client[];
+            const clientRecord = allClients.find(c => c.email === currentUser.email);
+            let accountantName = "O Seu Contabilista";
+            
+            if (clientRecord) {
+               // Find the user who owns this client list
+               const accountantId = Object.keys(dataDB).find(accId => 
+                 dataDB[accId].some(c => c.id === clientRecord.id)
+               );
+               const accountantUser = usersDB.find(u => u.id === accountantId);
+               if (accountantUser) accountantName = accountantUser.name;
+            }
+
+            const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
+
             switch (currentView) {
               case 'dashboard':
-                return <DashboardClient />;
+                return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                  />
+                );
               case 'profile':
                 return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               default:
-                return <DashboardClient />;
+                return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                  />
+                );
             }
           })()
         ) : (
           (() => {
+             // For Accountant, filter documents belonging to their clients
+             const myClientIds = clients.map(c => c.id);
+             // In a real app, Client Record ID and User Record ID would be linked. 
+             // Here we match by email for simplicity in this prototype structure
+             const myClientEmails = clients.map(c => c.email);
+             
+             // Find documents where doc.clientId matches a User ID that has an email in myClientEmails
+             // This is a bit complex due to disconnected Auth/Data types in prototype, 
+             // so we will simplify: Show all docs for now or filter if we can.
+             // Let's filter by checking if the doc's clientId (which is a User.id) corresponds to a User whose email is in myClientEmails
+             const relevantDocs = docsDB.filter(doc => {
+                const docOwner = usersDB.find(u => u.id === doc.clientId);
+                return docOwner && myClientEmails.includes(docOwner.email);
+             });
+
             switch (currentView) {
               case 'dashboard':
                 return (
@@ -239,6 +327,7 @@ const App: React.FC = () => {
                     onNavigate={setCurrentView} 
                     clients={clients} 
                     user={currentUser}
+                    documents={relevantDocs}
                   />
                 );
               case 'clients':
@@ -262,6 +351,7 @@ const App: React.FC = () => {
                     onNavigate={setCurrentView} 
                     clients={clients} 
                     user={currentUser}
+                    documents={relevantDocs}
                   />
                 );
             }

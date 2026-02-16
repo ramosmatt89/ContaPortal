@@ -1,25 +1,31 @@
 import React from 'react';
-import { Client, User } from '../types';
+import { Client, User, Document } from '../types';
 import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, Search, Filter, Plus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const data = [
-  { name: 'Jan', docs: 400, validated: 240 },
-  { name: 'Fev', docs: 300, validated: 139 },
-  { name: 'Mar', docs: 200, validated: 980 },
-  { name: 'Abr', docs: 278, validated: 390 },
-  { name: 'Mai', docs: 189, validated: 480 },
-  { name: 'Jun', docs: 239, validated: 380 },
-];
 
 interface DashboardAccountantProps {
   onNavigate: (view: string) => void;
   clients: Client[];
   user: User;
+  documents: Document[];
 }
 
-const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, clients, user }) => {
+const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, clients, user, documents = [] }) => {
   
+  // Calculate stats from real documents
+  const totalDocs = documents.length;
+  const pendingDocsCount = documents.filter(d => d.status === 'PENDENTE').length;
+  
+  // Simple mock chart data generation based on total count
+  const data = [
+    { name: 'Jan', docs: Math.floor(totalDocs * 0.1), validated: Math.floor(totalDocs * 0.08) },
+    { name: 'Fev', docs: Math.floor(totalDocs * 0.2), validated: Math.floor(totalDocs * 0.15) },
+    { name: 'Mar', docs: Math.floor(totalDocs * 0.15), validated: Math.floor(totalDocs * 0.1) },
+    { name: 'Abr', docs: Math.floor(totalDocs * 0.3), validated: Math.floor(totalDocs * 0.25) },
+    { name: 'Mai', docs: Math.floor(totalDocs * 0.2), validated: Math.floor(totalDocs * 0.18) },
+    { name: 'Jun', docs: totalDocs, validated: totalDocs - pendingDocsCount },
+  ];
+
   if (clients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-fade-in-up">
@@ -48,7 +54,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, c
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { icon: Users, label: 'Total Clientes', value: clients.length, trend: 'Ativos', color: 'brand-blue', badgeColor: 'bg-blue-100 text-brand-blue border-blue-200' },
-          { icon: FileCheck, label: 'Docs Pendentes', value: clients.reduce((acc, c) => acc + c.pendingDocs, 0), trend: 'Ação Necessária', color: 'status-warning', badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+          { icon: FileCheck, label: 'Docs Pendentes', value: pendingDocsCount, trend: 'Ação Necessária', color: 'status-warning', badgeColor: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
           { icon: AlertCircle, label: 'Alertas Fiscais', value: clients.filter(c => c.status === 'OVERDUE').length, trend: 'Urgente', color: 'status-error', badgeColor: 'bg-red-100 text-status-error border-red-200' }
         ].map((kpi, idx) => (
           <div key={idx} className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-white transition-colors">
