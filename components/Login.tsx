@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
-import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight } from 'lucide-react';
+import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight, Check } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, pass: string) => void;
@@ -14,10 +14,41 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
   const [isRegistering, setIsRegistering] = useState(false);
   const [role, setRole] = useState<UserRole>(UserRole.ACCOUNTANT);
   
+  // Invitation State
+  const [inviterName, setInviterName] = useState<string | null>(null);
+  const [inviterLogo, setInviterLogo] = useState<string | null>(null);
+
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Check for Invite Params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const invitedBy = params.get('invitedBy');
+    const logo = params.get('logo');
+    const invitedEmail = params.get('email');
+
+    if (invitedBy) {
+      setInviterName(invitedBy);
+      setRole(UserRole.CLIENT); // Force Client role if invited
+      setIsRegistering(true); // Go straight to register/activate
+    }
+    
+    if (logo) {
+       // In a real app, 'logo' might be a URL. For demo, if it's just a flag, we might use a placeholder
+       if (logo === 'demo') {
+          // just leave null or set a demo image
+       } else {
+         setInviterLogo(logo);
+       }
+    }
+
+    if (invitedEmail) {
+      setEmail(invitedEmail);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,17 +70,45 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
         
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex p-4 rounded-[2rem] bg-white/40 backdrop-blur-2xl border border-white/60 shadow-xl mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-4xl shadow-lg shadow-brand-blue/30">
-              C
+          {inviterName ? (
+            <div className="mb-6 animate-fade-in-up">
+               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-neutral-light shadow-sm text-sm font-medium text-neutral-medium mb-4">
+                 <span className="w-2 h-2 bg-status-success rounded-full animate-pulse"></span>
+                 Convite Especial
+               </div>
+               
+               {inviterLogo ? (
+                 <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-white shadow-xl shadow-brand-blue/10 p-1 flex items-center justify-center border border-white/50">
+                    <img src={inviterLogo} alt={inviterName} className="w-full h-full object-cover rounded-xl" />
+                 </div>
+               ) : (
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-2xl shadow-lg">
+                    {inviterName.charAt(0)}
+                  </div>
+               )}
+               
+               <h2 className="text-3xl font-extrabold text-neutral-dark tracking-tight">
+                 {inviterName}
+               </h2>
+               <p className="text-neutral-medium mt-1">
+                 convidou-o para o <strong>ContaPortal</strong>
+               </p>
             </div>
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-neutral-dark mb-2">
-            Conta<span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-purple">Portal</span>
-          </h1>
-          <p className="text-neutral-medium font-medium">
-            {isRegistering ? 'Crie o seu escritório digital' : 'Bem-vindo de volta'}
-          </p>
+          ) : (
+            <>
+              <div className="inline-flex p-4 rounded-[2rem] bg-white/40 backdrop-blur-2xl border border-white/60 shadow-xl mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-4xl shadow-lg shadow-brand-blue/30">
+                  C
+                </div>
+              </div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-neutral-dark mb-2">
+                Conta<span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-purple">Portal</span>
+              </h1>
+              <p className="text-neutral-medium font-medium">
+                {isRegistering ? 'Crie o seu escritório digital' : 'Bem-vindo de volta'}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Main Card */}
@@ -57,8 +116,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
           
           <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
             
-            {/* Role Selection (Only for Register) */}
-            {isRegistering && (
+            {/* Role Selection (Only for Register & Not Invited) */}
+            {isRegistering && !inviterName && (
               <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-white/40 rounded-2xl">
                 <button
                   type="button"
@@ -113,7 +172,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
                   placeholder="seu@email.com"
+                  readOnly={!!inviterName} // Read only if invited via email
                 />
+                {inviterName && <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-status-success" />}
               </div>
             </div>
 
@@ -148,28 +209,32 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
                 <Loader2 size={24} className="animate-spin" />
               ) : (
                 <>
-                  <span>{isRegistering ? 'Criar Conta' : 'Entrar'}</span>
+                  <span>
+                    {isRegistering ? (inviterName ? 'Aceitar Convite' : 'Criar Conta') : 'Entrar'}
+                  </span>
                   <ArrowRight size={20} />
                 </>
               )}
             </button>
           </form>
 
-          {/* Footer Toggle */}
-          <div className="mt-8 pt-6 border-t border-white/40 text-center relative z-10">
-            <p className="text-neutral-medium text-sm">
-              {isRegistering ? 'Já tem conta?' : 'Ainda não tem conta?'}
-              <button 
-                onClick={() => {
-                  setIsRegistering(!isRegistering);
-                  setError?.(null);
-                }}
-                className="ml-2 font-bold text-brand-blue hover:text-brand-purple transition-colors"
-              >
-                {isRegistering ? 'Fazer Login' : 'Registar agora'}
-              </button>
-            </p>
-          </div>
+          {/* Footer Toggle (Hide if invited to keep flow focused) */}
+          {!inviterName && (
+            <div className="mt-8 pt-6 border-t border-white/40 text-center relative z-10">
+              <p className="text-neutral-medium text-sm">
+                {isRegistering ? 'Já tem conta?' : 'Ainda não tem conta?'}
+                <button 
+                  onClick={() => {
+                    setIsRegistering(!isRegistering);
+                    setError?.(null);
+                  }}
+                  className="ml-2 font-bold text-brand-blue hover:text-brand-purple transition-colors"
+                >
+                  {isRegistering ? 'Fazer Login' : 'Registar agora'}
+                </button>
+              </p>
+            </div>
+          )}
 
         </div>
         

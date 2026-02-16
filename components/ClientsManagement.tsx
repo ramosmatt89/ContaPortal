@@ -57,7 +57,23 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call delay and Link Generation
+    // Get current user details from local storage or context if available
+    // For this mock, we assume the user just updated their profile and we want to pass that info
+    // Note: In a real app, the backend generates this token. Here we simulate the URL params.
+    // We access the "CurrentUser" via a hack or assuming data is passed. 
+    // Since we don't have currentUser prop here, let's pretend the link generation is server-side 
+    // but formatted for our client-side Login.tsx demo.
+    
+    // We will retrieve the currentUser from the Layout context conceptually, 
+    // but since we are inside a component, let's grab the generic "Accountant" identity
+    // or rely on what's available.
+    
+    // BETTER APPROACH: We don't have the current user in props. 
+    // To solve this properly without changing App.tsx props too much, 
+    // we'll assume the URL we generate simply has placeholders that Login.tsx can read if we were testing e2e.
+    // HOWEVER, to make the demo work right now for the user:
+    // Let's assume we are the accountant.
+    
     setTimeout(() => {
       const newId = `c${Date.now()}`;
       const createdClient: Client = {
@@ -75,8 +91,19 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       onAddClient(createdClient);
       setIsLoading(false);
       
-      // Instead of closing, show the generated link
-      setGeneratedLink(`https://contaportal.pt/invite/${newId}?ref=invitation`);
+      // Generate Link with Branding Params (Simulated)
+      // We look for the user info in the DOM or simple session storage if we wanted persistence
+      // For this demo, we'll append a generic "inviter" param that Login.tsx will recognize
+      // or if the user uploaded a logo, we'd ideally pass it. 
+      // Since `clients` doesn't hold the accountant's logo, we'll pass a placeholder
+      // that Login.tsx will use to show the feature.
+      
+      // In a real scenario, the ID implies the accountant, and the backend fetches the logo.
+      // Here, we'll encode it in the URL for the frontend demo.
+      const inviterName = "O Seu Contabilista"; 
+      const inviterLogoParam = "&logo=demo"; // Login.tsx will interpret 'demo' or a real URL
+
+      setGeneratedLink(`https://contaportal.pt/login?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(newClient.email)}`);
     }, 1500);
   };
 
@@ -208,7 +235,10 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     <button 
                       title="Copiar Link de Convite"
                       onClick={() => {
-                        navigator.clipboard.writeText(`https://contaportal.pt/invite/${client.id}`);
+                        // In a real app we'd access the currentUser here to pass their logo
+                        // For demo consistency we keep it generic
+                        const link = `https://contaportal.pt/login?invitedBy=O%20Seu%20Contabilista&email=${encodeURIComponent(client.email)}`;
+                        navigator.clipboard.writeText(link);
                         alert('Link copiado!');
                       }}
                       className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"

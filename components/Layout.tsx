@@ -45,10 +45,17 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
       {/* Desktop Sidebar - Floating Glass Style */}
       <aside className="hidden lg:flex flex-col fixed inset-y-4 left-4 w-72 glass-panel-dark rounded-[2rem] z-50">
         <div className="p-8 pb-4 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl">
-            C
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-neutral-dark">
+          {/* Dynamic Logo in Sidebar */}
+          {user.avatarUrl ? (
+            <div className="w-10 h-10 rounded-xl shadow-lg shadow-brand-blue/20 overflow-hidden bg-white">
+              <img src={user.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl">
+              C
+            </div>
+          )}
+          <span className="text-2xl font-bold tracking-tight text-neutral-dark truncate">
             ContaPortal
           </span>
         </div>
@@ -90,8 +97,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
           
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-3 glass-panel px-4 py-2 rounded-2xl">
-             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-bold text-lg shadow-md">
-              C
+             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden">
+               {user.avatarUrl ? (
+                 <img src={user.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
+               ) : (
+                 "C"
+               )}
             </div>
             <h1 className="font-bold text-lg text-neutral-dark tracking-tight">ContaPortal</h1>
           </div>
@@ -122,7 +133,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
                   <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue to-brand-purple rounded-2xl blur opacity-40 group-hover:opacity-70 transition-opacity"></div>
                   <img 
                     src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
-                    className="relative w-12 h-12 rounded-2xl border-2 border-white shadow-sm object-cover" 
+                    className="relative w-12 h-12 rounded-2xl border-2 border-white shadow-sm object-cover bg-white" 
                     alt="Profile"
                   />
                 </div>
@@ -132,7 +143,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
              <div className="lg:hidden" onClick={() => onNavigate('settings')}>
                <img 
                  src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`}
-                 className="w-10 h-10 rounded-2xl border-2 border-white/50 shadow-sm" 
+                 className="w-10 h-10 rounded-2xl border-2 border-white/50 shadow-sm object-cover bg-white" 
                  alt="Profile"
                />
              </div>
