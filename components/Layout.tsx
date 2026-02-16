@@ -19,9 +19,17 @@ interface LayoutProps {
   currentView: string;
   onNavigate: (view: string) => void;
   onLogout: () => void;
+  branding?: { name: string; logo?: string };
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ 
+  children, 
+  user, 
+  currentView, 
+  onNavigate, 
+  onLogout,
+  branding = { name: 'ContaPortal', logo: '' } 
+}) => {
   const isClient = user.role === UserRole.CLIENT;
 
   const menuItems = isClient 
@@ -45,18 +53,18 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
       {/* Desktop Sidebar - Floating Glass Style */}
       <aside className="hidden lg:flex flex-col fixed inset-y-4 left-4 w-72 glass-panel-dark rounded-[2rem] z-50">
         <div className="p-8 pb-4 flex items-center gap-4">
-          {/* Dynamic Logo in Sidebar */}
-          {user.avatarUrl ? (
-            <div className="w-10 h-10 rounded-xl shadow-lg shadow-brand-blue/20 overflow-hidden bg-white">
-              <img src={user.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
+          {/* Dynamic Branding Logo (Accountant's Logo) */}
+          {branding.logo ? (
+            <div className="w-10 h-10 rounded-xl shadow-lg shadow-brand-blue/20 overflow-hidden bg-white shrink-0">
+              <img src={branding.logo} alt="Logo" className="w-full h-full object-cover" />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl">
-              C
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl shrink-0">
+              {branding.name.charAt(0)}
             </div>
           )}
-          <span className="text-2xl font-bold tracking-tight text-neutral-dark truncate">
-            ContaPortal
+          <span className="text-xl font-bold tracking-tight text-neutral-dark truncate" title={branding.name}>
+            {branding.name}
           </span>
         </div>
 
@@ -95,16 +103,16 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
         {/* Top Header */}
         <header className="sticky top-0 z-40 lg:relative lg:top-auto px-4 py-4 lg:px-0 lg:py-0 flex justify-between items-center mb-6 lg:mb-10 transition-all duration-300">
           
-          {/* Mobile Logo */}
+          {/* Mobile Logo / Branding */}
           <div className="lg:hidden flex items-center gap-3 glass-panel px-4 py-2 rounded-2xl">
-             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden">
-               {user.avatarUrl ? (
-                 <img src={user.avatarUrl} alt="Logo" className="w-full h-full object-cover" />
+             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden shrink-0">
+               {branding.logo ? (
+                 <img src={branding.logo} alt="Logo" className="w-full h-full object-cover" />
                ) : (
-                 "C"
+                 branding.name.charAt(0)
                )}
             </div>
-            <h1 className="font-bold text-lg text-neutral-dark tracking-tight">ContaPortal</h1>
+            <h1 className="font-bold text-lg text-neutral-dark tracking-tight truncate max-w-[200px]">{branding.name}</h1>
           </div>
 
           {/* Desktop Search */}
@@ -117,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate
             />
           </div>
 
-          {/* User Profile */}
+          {/* User Profile (Logged In User) */}
           <div className="flex items-center gap-3 lg:gap-5">
              <button className="relative p-3 rounded-2xl glass-panel hover:bg-white transition-all active:scale-95 group hover:shadow-lg hover:shadow-brand-blue/10">
               <Bell size={22} className="text-neutral-medium group-hover:text-brand-blue transition-colors" />

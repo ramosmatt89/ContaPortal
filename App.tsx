@@ -286,6 +286,45 @@ const App: React.FC = () => {
     setObligationsDB(prev => prev.map(o => o.id === id ? { ...o, status: 'PAID' } : o));
   };
 
+  // --- BRANDING CALCULATION ---
+  // Determine whose logo/name should appear in the top-left (Branding)
+  const getBranding = () => {
+    const defaultBranding = { name: 'ContaPortal', logo: '' };
+
+    if (!currentUser) return defaultBranding;
+
+    if (currentUser.role === UserRole.ACCOUNTANT) {
+      // Accountant sees their own brand
+      return { 
+        name: currentUser.name, 
+        logo: currentUser.avatarUrl || '' 
+      };
+    } else if (currentUser.role === UserRole.CLIENT) {
+      // Client sees their Accountant's brand
+      // 1. Find Client's Accountant ID
+      const allClients = Object.values(dataDB).flat() as Client[];
+      const clientRecord = allClients.find(c => c.email === currentUser.email);
+      
+      if (clientRecord) {
+         const accountantId = Object.keys(dataDB).find(accId => 
+           dataDB[accId].some(c => c.id === clientRecord.id)
+         );
+         
+         if (accountantId) {
+           const accountantUser = usersDB.find(u => u.id === accountantId);
+           if (accountantUser) {
+             return {
+               name: accountantUser.name,
+               logo: accountantUser.avatarUrl || ''
+             };
+           }
+         }
+      }
+    }
+    
+    return defaultBranding;
+  };
+
   if (!currentUser) {
     return (
       <Login 
@@ -298,24 +337,15 @@ const App: React.FC = () => {
     );
   }
 
+  const branding = getBranding();
+
   const renderContent = () => {
     return (
       <Suspense fallback={<LoadingFallback />}>
         {currentUser.role === UserRole.CLIENT ? (
           (() => {
-            // Find Accountant Name
-            const allClients = Object.values(dataDB).flat() as Client[];
-            const clientRecord = allClients.find(c => c.email === currentUser.email);
-            let accountantName = "O Seu Contabilista";
-            
-            if (clientRecord) {
-               const accountantId = Object.keys(dataDB).find(accId => 
-                 dataDB[accId].some(c => c.id === clientRecord.id)
-               );
-               const accountantUser = usersDB.find(u => u.id === accountantId);
-               if (accountantUser) accountantName = accountantUser.name;
-            }
-
+            // Find Accountant Name (already calculated for branding, but good to have explicit here for passing props)
+            const accountantName = branding.name === 'ContaPortal' ? 'O Seu Contabilista' : branding.name;
             const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
 
             // Client Routing
@@ -331,7 +361,6 @@ const App: React.FC = () => {
                   />
                 );
               case 'documents':
-                 // Fix: Show the dedicated documents list
                  return (
                   <DashboardClient 
                     user={currentUser} 
@@ -342,7 +371,6 @@ const App: React.FC = () => {
                   />
                  );
               case 'authorizations':
-                 // Fix: Show the Obligations/Validation tab
                  return (
                   <DashboardClient 
                     user={currentUser} 
@@ -438,6 +466,7 @@ const App: React.FC = () => {
       currentView={currentView} 
       onNavigate={setCurrentView}
       onLogout={handleLogout}
+      branding={branding}
     >
       {renderContent()}
     </Layout>
