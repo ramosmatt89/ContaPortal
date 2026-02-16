@@ -75,14 +75,23 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const getLinkFromToken = (token: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/?token=${token}`;
+    // Robust URL construction to avoid format errors
+    const url = new URL(window.location.href);
+    url.search = ''; // Clear existing params like ?view=...
+    url.searchParams.set('token', token);
+    return url.toString();
   };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const alreadyExists = clients.some(c => c.email.toLowerCase() === newClient.email.toLowerCase() || c.nif === newClient.nif);
+    // Validation: Check for duplicates (Email always, NIF only if provided)
+    const alreadyExists = clients.some(c => {
+      const emailExists = c.email.toLowerCase() === newClient.email.toLowerCase();
+      const nifExists = newClient.nif ? c.nif === newClient.nif : false;
+      return emailExists || nifExists;
+    });
+
     if (alreadyExists) {
       alert("Já existe um cliente com este Email ou NIF.");
       return;
@@ -98,7 +107,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       const createdClient: Client = {
         id: newId,
         companyName: newClient.companyName,
-        nif: newClient.nif,
+        nif: newClient.nif || '', // Handle empty NIF
         email: newClient.email,
         contactPerson: newClient.contactPerson,
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
@@ -125,7 +134,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
        return;
     }
     const link = getLinkFromToken(client.inviteToken);
-    // Simple mailto fallback for resend, though the main flow uses the "System Email" visualization
     const subject = `Convite: Portal ${currentUser.name}`;
     const body = `Olá,\n\nVocê foi convidado para o portal de contabilidade.\n\nClique aqui para aceitar: ${link}\n\nO link expira em 48 horas.`;
     
@@ -229,7 +237,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                </div>
                <div>
                  <h3 className="font-bold text-lg text-neutral-dark leading-tight">{client.companyName}</h3>
-                 <p className="text-sm text-neutral-medium font-mono tracking-wide opacity-80">{client.nif}</p>
+                 <p className="text-sm text-neutral-medium font-mono tracking-wide opacity-80">{client.nif || 'N/A'}</p>
                </div>
              </div>
 
@@ -461,17 +469,17 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF (Opcional)</label>
                       <input 
                         type="text" 
                         name="nif"
-                        required
-                        pattern="[0-9]{9}"
-                        title="NIF deve ter 9 dígitos"
+                        pattern="[0-9]{8}"
+                        maxLength={8}
+                        title="O NIF deve ter 8 dígitos"
                         value={newClient.nif}
                         onChange={handleInputChange}
                         className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
-                        placeholder="999999999"
+                        placeholder="12345678"
                       />
                     </div>
                     <div>
