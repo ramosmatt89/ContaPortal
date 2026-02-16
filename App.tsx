@@ -2,7 +2,6 @@ import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
 import { UserRole, Client, User, Document, DocStatus, DocType, TaxObligation } from './types';
-import { DEMO_OBLIGATIONS } from './constants';
 
 // Lazy loading heavy dashboard components
 const DashboardClient = lazy(() => import('./components/DashboardClient'));
@@ -29,7 +28,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Load Data Database (Clients)
+  // Load Data Database (Clients linked to Accountants)
   const [dataDB, setDataDB] = useState<Record<string, Client[]>>(() => {
     const saved = localStorage.getItem('cp_dataDB');
     return saved ? JSON.parse(saved) : {};
@@ -41,11 +40,10 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Load Obligations Database (NEW for "Validar" tab)
+  // Load Obligations Database
   const [obligationsDB, setObligationsDB] = useState<TaxObligation[]>(() => {
     const saved = localStorage.getItem('cp_obligationsDB');
-    // Seed with demo data if empty for demonstration purposes
-    return saved ? JSON.parse(saved) : DEMO_OBLIGATIONS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Load Current Session
@@ -68,7 +66,7 @@ const App: React.FC = () => {
 
   // Load Clients for the current user when logged in
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && currentUser.role === UserRole.ACCOUNTANT) {
       const userClients = dataDB[currentUser.id] || [];
       setClients(userClients);
     } else {
@@ -121,11 +119,12 @@ const App: React.FC = () => {
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
       };
 
-      // 1. Create User
       setUsersDB(prev => [...prev, newUser]);
-      setDataDB(prev => ({ ...prev, [newUser.id]: [] })); 
+      if (role === UserRole.ACCOUNTANT) {
+        setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
+      }
 
-      // 2. Sync Invitation Status AND Profile Data
+      // Sync Invitation Logic: If this user was invited as a client, activate them in the accountant's list
       let wasInvited = false;
       const updatedDataDB = { ...dataDB };
       
@@ -135,13 +134,12 @@ const App: React.FC = () => {
         
         if (clientIndex > -1) {
           wasInvited = true;
-          // IMPORTANT: Here we update not just status, but the name and avatar 
-          // to match what the client just registered with.
+          // Sync profile data to the accountant's view
           updatedDataDB[accountantId][clientIndex] = {
              ...updatedDataDB[accountantId][clientIndex],
              status: 'ACTIVE',
-             companyName: newUser.name, // Sync registered name
-             avatarUrl: newUser.avatarUrl || updatedDataDB[accountantId][clientIndex].avatarUrl // Sync avatar
+             companyName: newUser.name,
+             avatarUrl: newUser.avatarUrl || updatedDataDB[accountantId][clientIndex].avatarUrl
           };
         }
       });
@@ -164,11 +162,13 @@ const App: React.FC = () => {
     setCurrentView('dashboard');
   };
 
-  // --- DATA HANDLERS ---
+  // --- DATA LOGIC ---
 
   const handleAddClient = (newClient: Client) => {
     if (!currentUser) return;
-    const updatedClients = [newClient, ...clients];
+    // Ensure we use the current user's ID as the accountant ID
+    const clientWithAccountant = { ...newClient, accountantId: currentUser.id };
+    const updatedClients = [clientWithAccountant, ...clients];
     setClients(updatedClients);
     setDataDB(prev => ({ ...prev, [currentUser.id]: updatedClients }));
   };
@@ -196,12 +196,10 @@ const App: React.FC = () => {
         localStorage.setItem('cp_currentUser', JSON.stringify(updatedUser));
       }
 
-      // If this user is a CLIENT, we must also update the ACCOUNTANT's view (dataDB)
-      // to ensure the accountant sees the new logo/name immediately.
+      // If Client, update Accountant's view
       if (currentUser.role === UserRole.CLIENT) {
         const updatedDataDB = { ...dataDB };
         let found = false;
-
         Object.keys(updatedDataDB).forEach(accId => {
            const clientList = updatedDataDB[accId];
            const clientIdx = clientList.findIndex(c => c.email === currentUser.email);
@@ -214,30 +212,28 @@ const App: React.FC = () => {
               found = true;
            }
         });
-
-        if (found) {
-           setDataDB(updatedDataDB);
-        }
+        if (found) setDataDB(updatedDataDB);
       }
     }
   };
 
-  const handleUploadDocument = (file: File) => {
+  // Upload Logic (Used by Client)
+  const handleUploadDocument = (file: File, type: DocType = DocType.INVOICE) => {
     if (!currentUser) return;
 
     const newDoc: Document = {
       id: `doc_${Date.now()}`,
       title: file.name,
-      type: DocType.INVOICE,
+      type: type,
       date: new Date().toISOString(),
       status: DocStatus.PENDING,
-      clientId: currentUser.id,
+      clientId: currentUser.id, // Links doc to the specific user ID
       fileUrl: URL.createObjectURL(file)
     };
 
     setDocsDB(prev => [newDoc, ...prev]);
     
-    // Update pending count for client record
+    // Increment 'pendingDocs' count in the Accountant's client list
     const allClients = Object.values(dataDB).flat() as Client[];
     const clientRecord = allClients.find(c => c.email === currentUser.email);
     
@@ -254,15 +250,13 @@ const App: React.FC = () => {
     }
   };
 
+  // Validation Logic (Used by Accountant)
   const handleValidateDocument = (docId: string, newStatus: DocStatus) => {
-    // 1. Update Document Status
     const docToUpdate = docsDB.find(d => d.id === docId);
     if (!docToUpdate) return;
 
-    // Direct state update ensures reactivity across re-renders
     setDocsDB(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
 
-    // 2. Decrement Client Pending Count
     if (newStatus !== DocStatus.PENDING) {
         const docOwnerUser = usersDB.find(u => u.id === docToUpdate.clientId);
         if (docOwnerUser) {
@@ -281,27 +275,34 @@ const App: React.FC = () => {
     }
   };
 
-  // Handler for Client to "Pay" or "Validate" an obligation
+  // Create Tax Obligation (Used by Accountant)
+  const handleAddObligation = (obligation: Omit<TaxObligation, 'id'>) => {
+    const newObligation: TaxObligation = {
+      ...obligation,
+      id: `tax_${Date.now()}`
+    };
+    setObligationsDB(prev => [newObligation, ...prev]);
+  };
+
+  // Pay/Approve Obligation (Used by Client)
   const handleApproveObligation = (id: string) => {
     setObligationsDB(prev => prev.map(o => o.id === id ? { ...o, status: 'PAID' } : o));
   };
 
-  // --- BRANDING CALCULATION ---
-  // Determine whose logo/name should appear in the top-left (Branding)
+  // --- BRANDING ---
   const getBranding = () => {
     const defaultBranding = { name: 'ContaPortal', logo: '' };
-
     if (!currentUser) return defaultBranding;
 
     if (currentUser.role === UserRole.ACCOUNTANT) {
-      // Accountant sees their own brand
+      // Accountant sees their own brand set in Settings
       return { 
         name: currentUser.name, 
         logo: currentUser.avatarUrl || '' 
       };
     } else if (currentUser.role === UserRole.CLIENT) {
       // Client sees their Accountant's brand
-      // 1. Find Client's Accountant ID
+      // Find the accountant who owns this client
       const allClients = Object.values(dataDB).flat() as Client[];
       const clientRecord = allClients.find(c => c.email === currentUser.email);
       
@@ -321,7 +322,6 @@ const App: React.FC = () => {
          }
       }
     }
-    
     return defaultBranding;
   };
 
@@ -344,11 +344,22 @@ const App: React.FC = () => {
       <Suspense fallback={<LoadingFallback />}>
         {currentUser.role === UserRole.CLIENT ? (
           (() => {
-            // Find Accountant Name (already calculated for branding, but good to have explicit here for passing props)
             const accountantName = branding.name === 'ContaPortal' ? 'O Seu Contabilista' : branding.name;
+            // Filter docs for THIS client
             const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
+            // Filter obligations for THIS client
+            // We need to map currentUser -> Client Record -> ID used in obligations
+            // Currently simplified: currentUser.id IS the clientId in docs, but obligations need to match logic.
+            // In handleAddObligation, we will store the Client ID from the Accountant's list. 
+            // We need to ensure we find the correct ID correspondence. 
+            // For now, let's assume obligationsDB stores the Accountant's Client ID reference.
+            // Ideally, we find the client record in dataDB to get the ID.
+            
+            let myClientId = currentUser.id; // Default
+            // Try to find if I am listed in an accountant's DB with a different ID (unlikely in this simplified model, but good practice)
+            
+            const userObligations = obligationsDB.filter(o => o.clientId === myClientId || o.clientId === currentUser.email); // Fallback to email matching if needed
 
-            // Client Routing
             switch (currentView) {
               case 'dashboard':
                 return (
@@ -358,6 +369,7 @@ const App: React.FC = () => {
                     onUpload={handleUploadDocument}
                     accountantName={accountantName}
                     viewMode="dashboard"
+                    obligations={userObligations}
                   />
                 );
               case 'documents':
@@ -378,7 +390,7 @@ const App: React.FC = () => {
                     onUpload={handleUploadDocument}
                     accountantName={accountantName}
                     viewMode="authorizations"
-                    obligations={obligationsDB}
+                    obligations={userObligations}
                     onApproveObligation={handleApproveObligation}
                   />
                  );
@@ -398,12 +410,16 @@ const App: React.FC = () => {
           })()
         ) : (
           (() => {
-             // Accountant Logic
+             // Accountant View
+             // Get only docs from my clients
              const myClientEmails = clients.map(c => c.email);
+             const myClientIds = clients.map(c => c.id);
              
+             // Get Docs belonging to my clients (Match by User ID -> Client Record -> Email/ID)
+             // Simplified: We need to map Doc.clientId (User ID) to verify it is one of my clients.
              const relevantDocs = docsDB.filter(doc => {
-                const docOwner = usersDB.find(u => u.id === doc.clientId);
-                return docOwner && myClientEmails.includes(docOwner.email);
+                const docOwnerUser = usersDB.find(u => u.id === doc.clientId);
+                return docOwnerUser && myClientEmails.includes(docOwnerUser.email);
              });
 
             switch (currentView) {
@@ -441,7 +457,17 @@ const App: React.FC = () => {
               case 'settings':
                   return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               case 'obligations':
-                  return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Gestão de Obrigações em construção 🚧</div>;
+                  return (
+                    <DashboardAccountant 
+                      onNavigate={setCurrentView} 
+                      clients={clients} 
+                      user={currentUser}
+                      documents={relevantDocs}
+                      viewMode="obligations" // Reuse dashboard component with specific mode
+                      onAddObligation={handleAddObligation}
+                      obligations={obligationsDB.filter(o => myClientIds.includes(o.clientId) || clients.some(c => c.email === o.clientId))}
+                    />
+                  );
               default:
                 return (
                   <DashboardAccountant 

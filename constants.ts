@@ -89,6 +89,7 @@ export const DEMO_DOCS: Document[] = [
 export const DEMO_OBLIGATIONS: TaxObligation[] = [
   {
     id: 't1',
+    clientId: 'c1',
     name: 'IVA - Declaração Periódica',
     deadline: '2024-06-20',
     status: 'PENDING',
@@ -96,6 +97,7 @@ export const DEMO_OBLIGATIONS: TaxObligation[] = [
   },
   {
     id: 't2',
+    clientId: 'c1',
     name: 'TSU - Segurança Social',
     deadline: '2024-06-20',
     status: 'PENDING',
@@ -103,6 +105,7 @@ export const DEMO_OBLIGATIONS: TaxObligation[] = [
   },
   {
     id: 't3',
+    clientId: 'c1',
     name: 'Retenção na Fonte IRS',
     deadline: '2024-06-20',
     status: 'PAID',

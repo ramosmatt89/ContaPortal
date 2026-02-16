@@ -63,8 +63,10 @@ export interface Notification {
 
 export interface TaxObligation {
   id: string;
+  clientId: string; // Added to link to specific client
   name: string; // e.g., "IVA Trimestral", "TSU"
   deadline: string;
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   amount: number;
+  fileUrl?: string; // Optional attachment (the guide itself)
 }

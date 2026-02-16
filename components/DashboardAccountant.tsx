@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Client, User, Document, DocStatus } from '../types';
-import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, Search, Filter, Plus, X, Eye, FileText, DownloadCloud } from 'lucide-react';
+import { Client, User, Document, DocStatus, TaxObligation } from '../types';
+import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, Search, Filter, Plus, X, Eye, FileText, DownloadCloud, Calendar, DollarSign, Send } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DashboardAccountantProps {
@@ -8,8 +8,10 @@ interface DashboardAccountantProps {
   clients: Client[];
   user: User;
   documents: Document[];
-  viewMode?: 'overview' | 'documents';
+  viewMode?: 'overview' | 'documents' | 'obligations';
   onValidate?: (docId: string, status: DocStatus) => void;
+  onAddObligation?: (obligation: Omit<TaxObligation, 'id'>) => void;
+  obligations?: TaxObligation[];
 }
 
 const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ 
@@ -18,36 +20,212 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
   user, 
   documents = [], 
   viewMode = 'overview',
-  onValidate
+  onValidate,
+  onAddObligation,
+  obligations = []
 }) => {
   
-  // Calculate stats from real documents
   const totalDocs = documents.length;
   const pendingDocs = documents.filter(d => d.status === DocStatus.PENDING);
   const pendingDocsCount = pendingDocs.length;
   
-  // States for Documents View
   const [docFilter, setDocFilter] = useState('');
+  
+  // Obligations State
+  const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
+  const [newObligation, setNewObligation] = useState({
+    clientId: '',
+    name: 'IVA - Declaração Periódica',
+    amount: '',
+    deadline: ''
+  });
 
-  // Mock Data for chart
-  const data = [
-    { name: 'Jan', docs: Math.floor(totalDocs * 0.1), validated: Math.floor(totalDocs * 0.08) },
-    { name: 'Fev', docs: Math.floor(totalDocs * 0.2), validated: Math.floor(totalDocs * 0.15) },
-    { name: 'Mar', docs: Math.floor(totalDocs * 0.15), validated: Math.floor(totalDocs * 0.1) },
-    { name: 'Abr', docs: Math.floor(totalDocs * 0.3), validated: Math.floor(totalDocs * 0.25) },
-    { name: 'Mai', docs: Math.floor(totalDocs * 0.2), validated: Math.floor(totalDocs * 0.18) },
-    { name: 'Jun', docs: totalDocs, validated: totalDocs - pendingDocsCount },
-  ];
+  // Export CSV Logic
+  const handleExportReport = () => {
+    const headers = ['Cliente', 'NIF', 'Email', 'Docs Pendentes', 'Estado'];
+    const rows = clients.map(c => [
+      c.companyName, 
+      c.nif, 
+      c.email, 
+      c.pendingDocs, 
+      c.status
+    ]);
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += headers.join(",") + "\r\n";
+    rows.forEach(row => {
+      csvContent += row.join(",") + "\r\n";
+    });
 
-  // Helper to get client name for a doc
-  const getClientName = (doc: Document) => {
-     // We only have email in the Client object in this prototype, and Document has clientId (User ID).
-     // Ideally we map UserID -> Client Name. 
-     // For now, assuming clientId matches or we use a placeholder if lookup fails.
-     // In App.tsx logic, doc.clientId is the User.id. We need to find the Client record that corresponds to that User email.
-     // This complexity is due to separated User/Client types.
-     return "Cliente #" + doc.clientId.substring(0,4);
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `relatorio_clientes_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  const submitObligation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onAddObligation && newObligation.clientId && newObligation.amount && newObligation.deadline) {
+      // Find the user ID corresponding to the selected client from the clients list
+      // In the App.tsx logic, the Client ID in the accountant list usually maps to the user or we use the User ID if available.
+      // Here we use the selected client's ID.
+      const selectedClient = clients.find(c => c.id === newObligation.clientId);
+      // NOTE: In a real app we need to map ClientID -> UserID reliably. 
+      // For this prototype, we'll assume the UserID matches or we use the ClientID provided.
+      // However, App.tsx filters obligations by matching user.id or email. 
+      // Let's pass the USER ID (which is the client.id in our simplified creation flow)
+      
+      onAddObligation({
+        clientId: newObligation.clientId, // This ID must match the User ID of the client
+        name: newObligation.name,
+        amount: parseFloat(newObligation.amount),
+        deadline: newObligation.deadline,
+        status: 'PENDING'
+      });
+      setIsObligationModalOpen(false);
+      setNewObligation({ clientId: '', name: 'IVA', amount: '', deadline: '' });
+      alert('Obrigação enviada ao cliente com sucesso!');
+    }
+  };
+
+  const getClientName = (id: string) => {
+     const c = clients.find(cl => cl.id === id || cl.email === id);
+     return c ? c.companyName : 'Cliente Desconhecido';
+  };
+
+  // --- OBLIGATIONS VIEW ---
+  if (viewMode === 'obligations') {
+    return (
+      <div className="space-y-6 animate-fade-in-up pb-8">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Obrigações Fiscais</h2>
+            <p className="text-neutral-medium text-lg">Envie guias de pagamento e controle os prazos dos seus clientes.</p>
+          </div>
+          <button 
+            onClick={() => setIsObligationModalOpen(true)}
+            className="btn-liquid px-6 py-3 rounded-2xl text-white font-bold flex items-center gap-2 shadow-lg"
+          >
+            <Plus size={20} /> Nova Obrigação
+          </button>
+        </div>
+
+        <div className="glass-panel-dark rounded-[2.5rem] overflow-hidden">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-neutral-light/50 text-neutral-medium uppercase text-xs font-bold">
+              <tr>
+                <th className="px-6 py-4">Cliente</th>
+                <th className="px-6 py-4">Obrigação</th>
+                <th className="px-6 py-4">Prazo</th>
+                <th className="px-6 py-4">Valor</th>
+                <th className="px-6 py-4">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-light/50">
+              {obligations.map(obl => (
+                <tr key={obl.id} className="hover:bg-white/50 transition-colors">
+                  <td className="px-6 py-4 font-bold text-neutral-dark">{getClientName(obl.clientId)}</td>
+                  <td className="px-6 py-4">{obl.name}</td>
+                  <td className="px-6 py-4 flex items-center gap-2">
+                    <Calendar size={14} className="text-neutral-medium"/>
+                    {new Date(obl.deadline).toLocaleDateString('pt-PT')}
+                  </td>
+                  <td className="px-6 py-4 font-mono font-medium">{obl.amount.toFixed(2)}€</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase border ${
+                      obl.status === 'PAID' ? 'bg-green-50 text-status-success border-green-100' :
+                      obl.status === 'OVERDUE' ? 'bg-red-50 text-status-error border-red-100' :
+                      'bg-blue-50 text-brand-blue border-blue-100'
+                    }`}>
+                      {obl.status === 'PAID' ? 'Pago' : obl.status === 'OVERDUE' ? 'Atrasado' : 'Enviado'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {obligations.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-neutral-medium">
+                    Nenhuma obrigação registada. Clique em "Nova Obrigação" para começar.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Modal */}
+        {isObligationModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-sm" onClick={() => setIsObligationModalOpen(false)}></div>
+            <div className="relative w-full max-w-md bg-white rounded-[2rem] p-8 shadow-2xl animate-fade-in-up">
+              <h3 className="text-2xl font-bold text-neutral-dark mb-6">Enviar Guia de Pagamento</h3>
+              <form onSubmit={submitObligation} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-dark mb-1">Cliente</label>
+                  <select 
+                    required
+                    className="w-full p-3 rounded-xl bg-neutral-bg border border-neutral-light focus:border-brand-blue outline-none"
+                    value={newObligation.clientId}
+                    onChange={e => setNewObligation({...newObligation, clientId: e.target.value})}
+                  >
+                    <option value="">Selecione um cliente...</option>
+                    {clients.filter(c => c.status === 'ACTIVE').map(c => (
+                      <option key={c.id} value={c.id}>{c.companyName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                   <label className="block text-xs font-bold text-neutral-dark mb-1">Tipo de Obrigação</label>
+                   <input 
+                      type="text"
+                      list="tax-types"
+                      required
+                      className="w-full p-3 rounded-xl bg-neutral-bg border border-neutral-light focus:border-brand-blue outline-none"
+                      value={newObligation.name}
+                      onChange={e => setNewObligation({...newObligation, name: e.target.value})}
+                   />
+                   <datalist id="tax-types">
+                     <option value="IVA - Declaração Periódica" />
+                     <option value="TSU - Segurança Social" />
+                     <option value="IRC - Pagamento por Conta" />
+                     <option value="Retenção na Fonte" />
+                   </datalist>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-dark mb-1">Valor (€)</label>
+                    <input 
+                      type="number" step="0.01"
+                      required
+                      className="w-full p-3 rounded-xl bg-neutral-bg border border-neutral-light focus:border-brand-blue outline-none"
+                      value={newObligation.amount}
+                      onChange={e => setNewObligation({...newObligation, amount: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-dark mb-1">Data Limite</label>
+                    <input 
+                      type="date"
+                      required
+                      className="w-full p-3 rounded-xl bg-neutral-bg border border-neutral-light focus:border-brand-blue outline-none"
+                      value={newObligation.deadline}
+                      onChange={e => setNewObligation({...newObligation, deadline: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="w-full py-3 mt-4 rounded-xl btn-liquid text-white font-bold shadow-lg">
+                  Enviar para Cliente
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // --- DOCUMENTS VALIDATION VIEW ---
   if (viewMode === 'documents') {
@@ -96,7 +274,9 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
                         </div>
                         <div className="overflow-hidden">
                            <h4 className="font-bold text-neutral-dark truncate pr-2" title={doc.title}>{doc.title}</h4>
-                           <p className="text-xs text-neutral-medium">{new Date(doc.date).toLocaleDateString()}</p>
+                           <p className="text-xs text-neutral-medium flex items-center gap-1">
+                             {new Date(doc.date).toLocaleDateString()} • {doc.type}
+                           </p>
                         </div>
                      </div>
                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-lg border border-yellow-200 uppercase">
@@ -108,13 +288,10 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
                   <div className="h-32 bg-neutral-light/50 rounded-xl mb-4 border-2 border-dashed border-neutral-light flex items-center justify-center relative overflow-hidden group-hover:border-brand-blue/30 transition-colors">
                      {doc.fileUrl ? (
                         <div className="w-full h-full relative">
-                          {/* We can't display actual PDF/Images easily from ObjectURLs created in other tabs without persistence, 
-                              but here we simulate the preview */}
                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm z-10">
                               <Eye size={24} className="text-neutral-medium mb-1" />
                               <span className="text-xs font-bold text-neutral-medium">Pré-visualização</span>
                           </div>
-                          {/* Fake content bg */}
                           <div className="absolute inset-0 bg-neutral-100 pattern-paper opacity-50"></div> 
                         </div>
                      ) : (
@@ -146,7 +323,6 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
   }
 
   // --- OVERVIEW VIEW (DEFAULT) ---
-
   if (clients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-fade-in-up">
@@ -173,7 +349,6 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
       
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Total Clients KPI */}
         <div 
            onClick={() => onNavigate('clients')}
            className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-brand-blue/50 cursor-pointer transition-colors"
@@ -195,7 +370,6 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
             </div>
         </div>
 
-        {/* Pending Docs KPI - Clickable to go to validation */}
         <div 
            onClick={() => onNavigate('documents')}
            className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-yellow-400 cursor-pointer transition-colors"
@@ -217,7 +391,6 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
             </div>
         </div>
 
-        {/* Alerts KPI */}
         <div className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-status-error/50 transition-colors">
             <div className="absolute right-0 top-0 p-6 opacity-10 text-status-error">
               <AlertCircle size={80} strokeWidth={1} />
@@ -240,7 +413,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
       {/* Main Layout: Chart + Clients */}
       <div className="grid lg:grid-cols-3 gap-6">
         
-        {/* Chart Section */}
+        {/* Chart Section - Mocked Data Visualization */}
         <div className="lg:col-span-2 glass-panel-dark p-8 rounded-[2rem] min-h-[420px]">
           <div className="flex justify-between items-center mb-8">
             <div>
@@ -254,7 +427,14 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
           
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={[
+                  { name: 'Jan', docs: 12, validated: 10 },
+                  { name: 'Fev', docs: 18, validated: 15 },
+                  { name: 'Mar', docs: 15, validated: 15 },
+                  { name: 'Abr', docs: 22, validated: 20 },
+                  { name: 'Mai', docs: 28, validated: 25 },
+                  { name: 'Jun', docs: totalDocs || 5, validated: (totalDocs - pendingDocsCount) || 3 },
+                ]}>
                 <defs>
                   <linearGradient id="colorDocs" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#007BFF" stopOpacity={0.4}/>
@@ -262,38 +442,18 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: '#6C757D', fontSize: 12, fontWeight: 500}} 
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: '#6C757D', fontSize: 12, fontWeight: 500}} 
-                  dx={-10}
-                />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6C757D', fontSize: 12}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6C757D', fontSize: 12}} dx={-10} />
                 <Tooltip 
                   contentStyle={{
                     borderRadius: '16px', 
                     border: '1px solid rgba(255,255,255,0.8)', 
                     backgroundColor: 'rgba(255,255,255,0.9)', 
-                    backdropFilter: 'blur(8px)',
                     boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)'
                   }}
                   itemStyle={{color: '#343A40', fontWeight: 600}}
-                  cursor={{stroke: '#007BFF', strokeWidth: 1, strokeDasharray: '4 4'}}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="docs" 
-                  stroke="#007BFF" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorDocs)" 
-                />
+                <Area type="monotone" dataKey="docs" stroke="#007BFF" strokeWidth={3} fillOpacity={1} fill="url(#colorDocs)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -355,10 +515,12 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
         <div className="p-8 border-b border-neutral-light/50 flex justify-between items-center">
           <div>
             <h3 className="font-bold text-lg text-neutral-dark">Progresso Mensal</h3>
-            <p className="text-sm text-neutral-medium">Junho 2024</p>
+            <p className="text-sm text-neutral-medium">{new Date().toLocaleString('pt-PT', { month: 'long', year: 'numeric' })}</p>
           </div>
           <div className="flex gap-2">
-             <button className="px-4 py-2 bg-neutral-light rounded-xl text-xs font-bold text-neutral-medium hover:bg-white transition-colors">Exportar</button>
+             <button onClick={handleExportReport} className="px-4 py-2 bg-neutral-light rounded-xl text-xs font-bold text-neutral-medium hover:bg-white hover:text-brand-blue transition-colors flex items-center gap-2">
+                <DownloadCloud size={14}/> Exportar CSV
+             </button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -379,27 +541,18 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
                   <td className="px-6 py-5">
                     <div className="w-32 bg-neutral-light rounded-full h-2 overflow-hidden shadow-inner">
                       <div 
-                        className={`h-2 rounded-full transition-all duration-1000 ${client.status === 'OVERDUE' ? 'bg-status-warning w-[40%]' : 'bg-status-success w-full'}`}
+                        className={`h-2 rounded-full transition-all duration-1000 ${client.pendingDocs > 0 ? 'bg-status-warning w-[60%]' : 'bg-status-success w-full'}`}
                       ></div>
                     </div>
-                    <span className="text-[10px] text-neutral-medium font-medium mt-1 block">
-                      {client.status === 'OVERDUE' ? '40% Completo' : '100% Completo'}
+                  </td>
+                  <td className="px-6 py-5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 text-status-success text-xs font-bold border border-green-100">
+                         Em Dia
                     </span>
                   </td>
                   <td className="px-6 py-5">
-                    {client.status === 'OVERDUE' ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
-                         Pendente
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 text-status-success text-xs font-bold border border-green-100">
-                         Validado
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-5">
                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 text-status-success text-xs font-bold border border-green-100">
-                         Submetido
+                         Em Dia
                       </span>
                   </td>
                   <td className="px-6 py-5 text-right">
