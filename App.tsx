@@ -125,7 +125,7 @@ const App: React.FC = () => {
       setUsersDB(prev => [...prev, newUser]);
       setDataDB(prev => ({ ...prev, [newUser.id]: [] })); 
 
-      // 2. Sync Invitation Status
+      // 2. Sync Invitation Status AND Profile Data
       let wasInvited = false;
       const updatedDataDB = { ...dataDB };
       
@@ -135,9 +135,13 @@ const App: React.FC = () => {
         
         if (clientIndex > -1) {
           wasInvited = true;
+          // IMPORTANT: Here we update not just status, but the name and avatar 
+          // to match what the client just registered with.
           updatedDataDB[accountantId][clientIndex] = {
              ...updatedDataDB[accountantId][clientIndex],
              status: 'ACTIVE',
+             companyName: newUser.name, // Sync registered name
+             avatarUrl: newUser.avatarUrl || updatedDataDB[accountantId][clientIndex].avatarUrl // Sync avatar
           };
         }
       });
@@ -190,6 +194,30 @@ const App: React.FC = () => {
       setUsersDB(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
       if (localStorage.getItem('cp_currentUser')) {
         localStorage.setItem('cp_currentUser', JSON.stringify(updatedUser));
+      }
+
+      // If this user is a CLIENT, we must also update the ACCOUNTANT's view (dataDB)
+      // to ensure the accountant sees the new logo/name immediately.
+      if (currentUser.role === UserRole.CLIENT) {
+        const updatedDataDB = { ...dataDB };
+        let found = false;
+
+        Object.keys(updatedDataDB).forEach(accId => {
+           const clientList = updatedDataDB[accId];
+           const clientIdx = clientList.findIndex(c => c.email === currentUser.email);
+           if (clientIdx > -1) {
+              updatedDataDB[accId][clientIdx] = {
+                 ...clientList[clientIdx],
+                 companyName: updatedData.name || clientList[clientIdx].companyName,
+                 avatarUrl: updatedData.avatarUrl || clientList[clientIdx].avatarUrl
+              };
+              found = true;
+           }
+        });
+
+        if (found) {
+           setDataDB(updatedDataDB);
+        }
       }
     }
   };
