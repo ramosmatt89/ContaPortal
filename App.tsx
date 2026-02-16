@@ -1,7 +1,8 @@
 import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
-import { UserRole, Client, User, Document, DocStatus, DocType } from './types';
+import { UserRole, Client, User, Document, DocStatus, DocType, TaxObligation } from './types';
+import { DEMO_OBLIGATIONS } from './constants';
 
 // Lazy loading heavy dashboard components
 const DashboardClient = lazy(() => import('./components/DashboardClient'));
@@ -22,22 +23,29 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
   // --- STATE INITIALIZATION WITH PERSISTENCE ---
 
-  // Load User Database from LocalStorage or initialize empty
+  // Load User Database
   const [usersDB, setUsersDB] = useState<User[]>(() => {
     const saved = localStorage.getItem('cp_usersDB');
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Load Data Database (Clients) from LocalStorage
+  // Load Data Database (Clients)
   const [dataDB, setDataDB] = useState<Record<string, Client[]>>(() => {
     const saved = localStorage.getItem('cp_dataDB');
     return saved ? JSON.parse(saved) : {};
   });
 
-  // Load Documents Database from LocalStorage
+  // Load Documents Database
   const [docsDB, setDocsDB] = useState<Document[]>(() => {
     const saved = localStorage.getItem('cp_docsDB');
     return saved ? JSON.parse(saved) : [];
+  });
+
+  // Load Obligations Database (NEW for "Validar" tab)
+  const [obligationsDB, setObligationsDB] = useState<TaxObligation[]>(() => {
+    const saved = localStorage.getItem('cp_obligationsDB');
+    // Seed with demo data if empty for demonstration purposes
+    return saved ? JSON.parse(saved) : DEMO_OBLIGATIONS;
   });
 
   // Load Current Session
@@ -56,6 +64,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('cp_usersDB', JSON.stringify(usersDB)); }, [usersDB]);
   useEffect(() => { localStorage.setItem('cp_dataDB', JSON.stringify(dataDB)); }, [dataDB]);
   useEffect(() => { localStorage.setItem('cp_docsDB', JSON.stringify(docsDB)); }, [docsDB]);
+  useEffect(() => { localStorage.setItem('cp_obligationsDB', JSON.stringify(obligationsDB)); }, [obligationsDB]);
 
   // Load Clients for the current user when logged in
   useEffect(() => {
@@ -114,11 +123,9 @@ const App: React.FC = () => {
 
       // 1. Create User
       setUsersDB(prev => [...prev, newUser]);
-      setDataDB(prev => ({ ...prev, [newUser.id]: [] })); // Init empty client list for this user if they are accountant
+      setDataDB(prev => ({ ...prev, [newUser.id]: [] })); 
 
-      // 2. CRITICAL FIX: Sync Invitation Status
-      // If this email was invited by an accountant, update the Client record in the accountant's list
-      // We iterate through all accountant lists to find if this email was invited
+      // 2. Sync Invitation Status
       let wasInvited = false;
       const updatedDataDB = { ...dataDB };
       
@@ -127,12 +134,10 @@ const App: React.FC = () => {
         const clientIndex = accountantClients.findIndex(c => c.email.toLowerCase() === email.toLowerCase());
         
         if (clientIndex > -1) {
-          // Found matching invitation! Update status to ACTIVE
           wasInvited = true;
           updatedDataDB[accountantId][clientIndex] = {
              ...updatedDataDB[accountantId][clientIndex],
              status: 'ACTIVE',
-             // We could link IDs here if needed: id: newUser.id 
           };
         }
       });
@@ -226,29 +231,31 @@ const App: React.FC = () => {
     const docToUpdate = docsDB.find(d => d.id === docId);
     if (!docToUpdate) return;
 
+    // Direct state update ensures reactivity across re-renders
     setDocsDB(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
 
     // 2. Decrement Client Pending Count
     if (newStatus !== DocStatus.PENDING) {
-        // Find owner email to find client record (Reverse lookup)
         const docOwnerUser = usersDB.find(u => u.id === docToUpdate.clientId);
         if (docOwnerUser) {
-             const accountantId = currentUser?.id; // Assuming current user is the accountant validating
+             const accountantId = currentUser?.id; 
              if (accountantId && dataDB[accountantId]) {
                  const updatedClientList = dataDB[accountantId].map(c => {
-                    // Match by email since IDs might differ in this prototype structure
                     if (c.email === docOwnerUser.email && c.pendingDocs > 0) {
                         return { ...c, pendingDocs: c.pendingDocs - 1 };
                     }
                     return c;
                  });
-                 
-                 // Update DB and Local State if we are the accountant
                  setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
                  setClients(updatedClientList);
              }
         }
     }
+  };
+
+  // Handler for Client to "Pay" or "Validate" an obligation
+  const handleApproveObligation = (id: string) => {
+    setObligationsDB(prev => prev.map(o => o.id === id ? { ...o, status: 'PAID' } : o));
   };
 
   if (!currentUser) {
@@ -283,21 +290,61 @@ const App: React.FC = () => {
 
             const userDocuments = docsDB.filter(d => d.clientId === currentUser.id);
 
-            return currentView === 'profile' 
-              ? <Settings user={currentUser} onUpdateUser={handleUpdateUser} />
-              : <DashboardClient 
-                  user={currentUser} 
-                  documents={userDocuments}
-                  onUpload={handleUploadDocument}
-                  accountantName={accountantName}
-                />;
+            // Client Routing
+            switch (currentView) {
+              case 'dashboard':
+                return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                    viewMode="dashboard"
+                  />
+                );
+              case 'documents':
+                 // Fix: Show the dedicated documents list
+                 return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                    viewMode="documents"
+                  />
+                 );
+              case 'authorizations':
+                 // Fix: Show the Obligations/Validation tab
+                 return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                    viewMode="authorizations"
+                    obligations={obligationsDB}
+                    onApproveObligation={handleApproveObligation}
+                  />
+                 );
+              case 'profile':
+                return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
+              default:
+                return (
+                  <DashboardClient 
+                    user={currentUser} 
+                    documents={userDocuments}
+                    onUpload={handleUploadDocument}
+                    accountantName={accountantName}
+                    viewMode="dashboard"
+                  />
+                );
+            }
           })()
         ) : (
           (() => {
              // Accountant Logic
              const myClientEmails = clients.map(c => c.email);
              
-             // Filter docs for my clients
              const relevantDocs = docsDB.filter(doc => {
                 const docOwner = usersDB.find(u => u.id === doc.clientId);
                 return docOwner && myClientEmails.includes(docOwner.email);
@@ -316,7 +363,6 @@ const App: React.FC = () => {
                   />
                 );
               case 'documents':
-                // Re-using DashboardAccountant for validation view
                  return (
                   <DashboardAccountant 
                     onNavigate={setCurrentView} 
