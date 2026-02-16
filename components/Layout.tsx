@@ -231,7 +231,7 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
             <h3 className="text-2xl font-extrabold text-neutral-dark text-center mb-2">Cancelar Conta?</h3>
             <p className="text-neutral-medium text-center mb-6">
-              Tem a certeza de que deseja cancelar a conta? Esta ação não pode ser desfeita. Os seus dados serão mantidos por 30 dias.
+              Tem a certeza de que deseja eliminar a conta? <strong>Esta ação é irreversível e os seus dados serão apagados imediatamente.</strong>
             </p>
             
             <div className="mb-6">

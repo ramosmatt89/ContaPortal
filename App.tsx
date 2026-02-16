@@ -129,34 +129,9 @@ const App: React.FC = () => {
       const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (user) {
-        // Check for Deletion Schedule
-        if (user.status === 'INACTIVE') {
-           if (user.deletionScheduledAt) {
-             const deletionDate = new Date(user.deletionScheduledAt);
-             const now = new Date();
-             if (now > deletionDate) {
-               setAuthError('Esta conta foi eliminada permanentemente.');
-               setAuthLoading(false);
-               return;
-             }
-             // Allow Reactivation
-             if (window.confirm('A sua conta está desativada e agendada para eliminação. Deseja reativá-la agora?')) {
-               const reactivatedUser = { ...user, status: 'ACTIVE' as const, deletionScheduledAt: undefined };
-               setUsersDB(prev => prev.map(u => u.id === user.id ? reactivatedUser : u));
-               setCurrentUser(reactivatedUser);
-               if (rememberMe) localStorage.setItem('cp_currentUser', JSON.stringify(reactivatedUser));
-               setCurrentView('dashboard');
-               alert('Bem-vindo de volta! A sua conta foi reativada.');
-               setAuthLoading(false);
-               return;
-             } else {
-               setAuthError('Conta desativada.');
-               setAuthLoading(false);
-               return;
-             }
-           }
-        }
-
+        // Immediate Deletion Logic means we don't need to check for 'INACTIVE' or grace periods anymore.
+        // If the user exists in usersDB, they are valid.
+        
         if (pass.length >= 4) { 
           setCurrentUser(user);
           if (rememberMe) localStorage.setItem('cp_currentUser', JSON.stringify(user));
@@ -267,22 +242,36 @@ const App: React.FC = () => {
   const handleCancelAccount = () => {
     if (!currentUser) return;
     
-    // Schedule deletion for 30 days from now
-    const deletionDate = new Date();
-    deletionDate.setDate(deletionDate.getDate() + 30);
+    // IMMEDIATE DELETION LOGIC (HARD DELETE)
     
-    const updatedUser: User = {
-       ...currentUser,
-       status: 'INACTIVE',
-       deletionScheduledAt: deletionDate.toISOString()
-    };
+    // 1. Remove from Users DB
+    setUsersDB(prev => prev.filter(u => u.id !== currentUser.id));
 
-    setUsersDB(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
-    
-    // Also logout immediately
+    if (currentUser.role === UserRole.ACCOUNTANT) {
+        // 2. If Accountant, remove their entry from Data DB (Client lists)
+        const newDataDB = { ...dataDB };
+        delete newDataDB[currentUser.id];
+        setDataDB(newDataDB);
+        // Note: We could recursively delete docs/obligations for all clients of this accountant,
+        // but removing the user and their client map effectively kills access.
+    } else {
+        // 3. If Client, find them in the accountant's list and remove
+        const newDataDB = { ...dataDB };
+        Object.keys(newDataDB).forEach(accId => {
+            // Filter out this client from any accountant's list based on email or ID match
+            newDataDB[accId] = newDataDB[accId].filter(c => c.email !== currentUser.email && c.id !== currentUser.id);
+        });
+        setDataDB(newDataDB);
+
+        // 4. Remove specific data owned by this client
+        setDocsDB(prev => prev.filter(d => d.clientId !== currentUser.id));
+        setObligationsDB(prev => prev.filter(o => o.clientId !== currentUser.id));
+    }
+
+    // 5. Logout Immediately
     handleLogout();
     
-    alert(`A sua conta foi cancelada. Os seus dados serão mantidos por 30 dias (${deletionDate.toLocaleDateString()}), após o qual serão permanentemente eliminados. Pode reativar a conta fazendo login durante este período.`);
+    alert('A sua conta e todos os dados associados foram eliminados permanentemente.');
   };
 
   // --- DATA LOGIC ---
