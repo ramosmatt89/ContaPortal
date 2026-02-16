@@ -1,5 +1,5 @@
 import React from 'react';
-import { Client } from '../types';
+import { Client, User } from '../types';
 import { Users, FileCheck, AlertCircle, TrendingUp, MoreHorizontal, Check, Search, Filter, Plus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -15,9 +15,10 @@ const data = [
 interface DashboardAccountantProps {
   onNavigate: (view: string) => void;
   clients: Client[];
+  user: User;
 }
 
-const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, clients }) => {
+const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, clients, user }) => {
   
   if (clients.length === 0) {
     return (
@@ -25,9 +26,9 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate, c
         <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl shadow-brand-blue/10 mb-8 border border-white/60">
           <Users size={40} className="text-brand-blue" />
         </div>
-        <h2 className="text-3xl font-bold text-neutral-dark mb-4">Bem-vindo ao seu Escritório Digital</h2>
+        <h2 className="text-3xl font-bold text-neutral-dark mb-4">Olá, {user.name.split(' ')[0]}!</h2>
         <p className="text-neutral-medium max-w-md mb-8 text-lg leading-relaxed">
-          Ainda não tem clientes associados. Comece por adicionar a sua primeira empresa para gerir documentos e obrigações.
+          O seu escritório digital está pronto. Comece por adicionar a sua primeira empresa para gerir documentos.
         </p>
         <button 
           onClick={() => onNavigate('clients')}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserRole } from '../types';
+import { User, UserRole } from '../types';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -15,14 +15,14 @@ import {
 
 interface LayoutProps {
   children: React.ReactNode;
-  role: UserRole;
+  user: User;
   currentView: string;
   onNavigate: (view: string) => void;
   onLogout: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, role, currentView, onNavigate, onLogout }) => {
-  const isClient = role === UserRole.CLIENT;
+const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate, onLogout }) => {
+  const isClient = user.role === UserRole.CLIENT;
 
   const menuItems = isClient 
     ? [
@@ -115,33 +115,25 @@ const Layout: React.FC<LayoutProps> = ({ children, role, currentView, onNavigate
              
              <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-neutral-light/50">
                 <div className="text-right">
-                  <p className="text-sm font-bold text-neutral-dark">{isClient ? 'João Silva' : 'Dr. Mário Contas'}</p>
-                  <p className="text-xs font-medium text-neutral-medium">{isClient ? 'TechSolutions Lda' : 'Contabilista Sénior'}</p>
+                  <p className="text-sm font-bold text-neutral-dark">{user.name}</p>
+                  <p className="text-xs font-medium text-neutral-medium">{isClient ? user.email : 'Contabilista'}</p>
                 </div>
-                <div className="relative group cursor-pointer">
+                <div className="relative group cursor-pointer" onClick={() => onNavigate('settings')}>
                   <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue to-brand-purple rounded-2xl blur opacity-40 group-hover:opacity-70 transition-opacity"></div>
                   <img 
-                    src={`https://picsum.photos/seed/${role}/100`} 
+                    src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
                     className="relative w-12 h-12 rounded-2xl border-2 border-white shadow-sm object-cover" 
                     alt="Profile"
-                    loading="lazy"
-                    width="48"
-                    height="48"
-                    decoding="async"
                   />
                 </div>
              </div>
 
              {/* Mobile Profile Icon */}
-             <div className="lg:hidden">
+             <div className="lg:hidden" onClick={() => onNavigate('settings')}>
                <img 
-                 src={`https://picsum.photos/seed/${role}/100`} 
+                 src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`}
                  className="w-10 h-10 rounded-2xl border-2 border-white/50 shadow-sm" 
                  alt="Profile"
-                 loading="lazy"
-                 width="40"
-                 height="40"
-                 decoding="async"
                />
              </div>
           </div>

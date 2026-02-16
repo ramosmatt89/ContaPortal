@@ -4,6 +4,14 @@ export enum UserRole {
   NONE = 'NONE'
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatarUrl?: string;
+}
+
 export enum DocStatus {
   PENDING = 'PENDENTE',
   REVIEWING = 'EM_ANALISE',

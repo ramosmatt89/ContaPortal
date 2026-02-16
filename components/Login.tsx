@@ -1,88 +1,186 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserRole } from '../types';
-import { Briefcase, User, ArrowRight, Lock } from 'lucide-react';
+import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (role: UserRole) => void;
+  onLogin: (email: string, pass: string) => void;
+  onRegister: (name: string, email: string, pass: string, role: UserRole) => void;
+  isLoading?: boolean;
+  error?: string | null;
+  setError?: (error: string | null) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, error, setError }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [role, setRole] = useState<UserRole>(UserRole.ACCOUNTANT);
+  
+  // Form State
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isRegistering) {
+      onRegister(name, email, password, role);
+    } else {
+      onLogin(email, password);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 md:p-12 relative overflow-hidden bg-neutral-bg">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-neutral-bg">
       
-      {/* Vivid Animated Background Blobs */}
+      {/* Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[60vh] h-[60vh] bg-brand-blue/20 rounded-full mix-blend-multiply filter blur-[90px] animate-blob"></div>
       <div className="absolute top-[20%] right-[-10%] w-[50vh] h-[50vh] bg-brand-purple/20 rounded-full mix-blend-multiply filter blur-[90px] animate-blob animation-delay-2000"></div>
-      <div className="absolute bottom-[-10%] left-[20%] w-[50vh] h-[50vh] bg-status-success/10 rounded-full mix-blend-multiply filter blur-[90px] animate-blob animation-delay-4000"></div>
 
-      <div className="relative z-10 w-full max-w-5xl flex flex-col justify-center items-center w-full">
-        {/* Header Section */}
-        <div className="text-center mb-8 md:mb-24 animate-fade-in-up flex-shrink-0 w-full">
-          <div className="inline-flex p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] bg-white/40 backdrop-blur-2xl border border-white/60 shadow-xl mb-6 md:mb-10 animate-float">
-            <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl bg-gradient-to-tr from-brand-blue via-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-4xl md:text-6xl shadow-lg shadow-brand-blue/30">
+      <div className="relative z-10 w-full max-w-md">
+        
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex p-4 rounded-[2rem] bg-white/40 backdrop-blur-2xl border border-white/60 shadow-xl mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-extrabold text-4xl shadow-lg shadow-brand-blue/30">
               C
             </div>
           </div>
-          <h1 className="text-4xl md:text-7xl font-extrabold tracking-tight text-neutral-dark mb-2 md:mb-6 drop-shadow-sm leading-tight">
+          <h1 className="text-4xl font-extrabold tracking-tight text-neutral-dark mb-2">
             Conta<span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-purple">Portal</span>
           </h1>
-          <p className="text-sm md:text-xl text-neutral-medium max-w-2xl mx-auto font-medium leading-relaxed px-4">
-            A revolução da contabilidade digital. <br /> 
-            <span className="text-brand-blue">Fluída</span>, <span className="text-brand-purple">Vibrante</span> e <span className="text-status-success">Conectada</span>.
+          <p className="text-neutral-medium font-medium">
+            {isRegistering ? 'Crie o seu escritório digital' : 'Bem-vindo de volta'}
           </p>
         </div>
 
-        {/* Buttons Grid - Stacked on mobile for better touch targets, 2 cols on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-12 max-w-4xl mx-auto px-0 md:px-4 w-full">
+        {/* Main Card */}
+        <div className="glass-panel p-8 rounded-[2.5rem] relative overflow-hidden">
           
-          {/* Accountant Card - NOW FIRST */}
-          <button 
-             onClick={() => onLogin(UserRole.ACCOUNTANT)}
-             className="group relative p-5 md:p-10 rounded-[2rem] md:rounded-[3rem] glass-panel hover:border-brand-purple/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-brand-purple/20 active:scale-95 flex flex-col h-full"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem] md:rounded-[3rem]"></div>
-            <div className="relative flex flex-col items-center md:items-start text-center md:text-left h-full justify-center md:justify-start w-full">
-              <div className="w-14 h-14 md:w-20 md:h-20 rounded-2xl bg-purple-50 text-brand-purple flex items-center justify-center mb-3 md:mb-8 group-hover:scale-110 group-hover:bg-gradient-to-br group-hover:from-brand-purple group-hover:to-[#a45ee5] group-hover:text-white transition-all duration-300 shadow-sm">
-                <Briefcase className="w-7 h-7 md:w-10 md:h-10" />
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+            
+            {/* Role Selection (Only for Register) */}
+            {isRegistering && (
+              <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-white/40 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setRole(UserRole.ACCOUNTANT)}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
+                    role === UserRole.ACCOUNTANT 
+                      ? 'bg-white text-brand-purple shadow-sm' 
+                      : 'text-neutral-medium hover:text-neutral-dark'
+                  }`}
+                >
+                  <Briefcase size={16} /> Contabilista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole(UserRole.CLIENT)}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
+                    role === UserRole.CLIENT 
+                      ? 'bg-white text-brand-blue shadow-sm' 
+                      : 'text-neutral-medium hover:text-neutral-dark'
+                  }`}
+                >
+                  <User size={16} /> Cliente
+                </button>
               </div>
-              <h3 className="text-lg md:text-3xl font-bold text-neutral-dark mb-0 md:mb-4 group-hover:text-brand-purple transition-colors">Sou Contabilista</h3>
-              <p className="hidden md:block text-neutral-medium text-lg mb-8 leading-relaxed">
-                Visão 360º dos seus clientes. Valide documentos e gerencie prazos com eficiência.
-              </p>
-               <div className="hidden md:flex mt-auto items-center gap-3 text-base font-bold text-brand-purple opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300">
-                Aceder ao Backoffice <ArrowRight size={20} />
+            )}
+
+            {isRegistering && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-neutral-dark ml-2">Nome Completo</label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
+                  <input 
+                    type="text" 
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
+                    placeholder="Ex: Mário Santos"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-neutral-dark ml-2">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
+                  placeholder="seu@email.com"
+                />
               </div>
             </div>
-          </button>
 
-          {/* Client Card - NOW SECOND */}
-          <button 
-            onClick={() => onLogin(UserRole.CLIENT)}
-            className="group relative p-5 md:p-10 rounded-[2rem] md:rounded-[3rem] glass-panel hover:border-brand-blue/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-brand-blue/20 active:scale-95 flex flex-col h-full"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2rem] md:rounded-[3rem]"></div>
-            <div className="relative flex flex-col items-center md:items-start text-center md:text-left h-full justify-center md:justify-start w-full">
-              <div className="w-14 h-14 md:w-20 md:h-20 rounded-2xl bg-blue-50 text-brand-blue flex items-center justify-center mb-3 md:mb-8 group-hover:scale-110 group-hover:bg-gradient-to-br group-hover:from-brand-blue group-hover:to-[#4e9aff] group-hover:text-white transition-all duration-300 shadow-sm">
-                <User className="w-7 h-7 md:w-10 md:h-10" />
-              </div>
-              <h3 className="text-lg md:text-3xl font-bold text-neutral-dark mb-0 md:mb-4 group-hover:text-brand-blue transition-colors">Sou Cliente</h3>
-              <p className="hidden md:block text-neutral-medium text-lg mb-8 leading-relaxed">
-                Envie documentos, consulte obrigações fiscais e aprove pagamentos em segundos.
-              </p>
-              
-              {/* Disclaimer */}
-              <div className="flex items-center gap-2 mb-4 md:mb-0 bg-blue-50/50 px-3 py-1.5 rounded-lg border border-blue-100/50">
-                 <Lock size={12} className="text-neutral-medium" />
-                 <span className="text-xs text-neutral-medium font-medium">Acesso restrito por convite</span>
-              </div>
-
-              <div className="hidden md:flex mt-auto items-center gap-3 text-base font-bold text-brand-blue opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300">
-                Entrar no Portal <ArrowRight size={20} />
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-neutral-dark ml-2">Palavra-passe</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
+                  placeholder="••••••••"
+                />
               </div>
             </div>
-          </button>
+
+            {error && (
+              <div className="p-3 rounded-xl bg-red-50 text-status-error text-sm font-bold border border-red-100 flex items-center gap-2 animate-fade-in-up">
+                <div className="w-1.5 h-1.5 rounded-full bg-status-error"></div>
+                {error}
+              </div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 rounded-2xl btn-liquid text-white font-bold text-lg flex items-center justify-center gap-2 shadow-lg hover:shadow-brand-blue/30 transition-all mt-4"
+            >
+              {isLoading ? (
+                <Loader2 size={24} className="animate-spin" />
+              ) : (
+                <>
+                  <span>{isRegistering ? 'Criar Conta' : 'Entrar'}</span>
+                  <ArrowRight size={20} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer Toggle */}
+          <div className="mt-8 pt-6 border-t border-white/40 text-center relative z-10">
+            <p className="text-neutral-medium text-sm">
+              {isRegistering ? 'Já tem conta?' : 'Ainda não tem conta?'}
+              <button 
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setError?.(null);
+                }}
+                className="ml-2 font-bold text-brand-blue hover:text-brand-purple transition-colors"
+              >
+                {isRegistering ? 'Fazer Login' : 'Registar agora'}
+              </button>
+            </p>
+          </div>
+
         </div>
         
+        {/* Security Note */}
+        {!isRegistering && (
+          <div className="mt-8 text-center flex items-center justify-center gap-2 text-neutral-medium/60 text-xs">
+            <Lock size={12} />
+            <span>Ligação Encriptada e Segura</span>
+          </div>
+        )}
+
       </div>
     </div>
   );

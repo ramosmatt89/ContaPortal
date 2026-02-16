@@ -1,14 +1,16 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import Login from './components/Login';
 import Layout from './components/Layout';
-import { UserRole, Client } from './types';
+import { UserRole, Client, User } from './types';
+import { DEMO_CLIENTS } from './constants';
 
-// Lazy loading heavy dashboard components to reduce initial bundle size
+// Lazy loading heavy dashboard components
 const DashboardClient = lazy(() => import('./components/DashboardClient'));
 const DashboardAccountant = lazy(() => import('./components/DashboardAccountant'));
 const ClientsManagement = lazy(() => import('./components/ClientsManagement'));
+const Settings = lazy(() => import('./components/Settings'));
 
-// Lightweight loading component matching the glass design
+// Lightweight loading component
 const LoadingFallback = () => (
   <div className="w-full h-64 flex items-center justify-center">
     <div className="relative w-12 h-12">
@@ -19,60 +21,154 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
-  const [role, setRole] = useState<UserRole>(UserRole.NONE);
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [currentView, setCurrentView] = useState('dashboard');
   
-  // State for Accountant Data (Session Isolated)
-  // Initially empty to satisfy requirements: "Ao criar nova conta, dashboard vazio"
+  // Data State (Isolated per User)
   const [clients, setClients] = useState<Client[]>([]);
 
-  const handleLogin = (selectedRole: UserRole) => {
-    setRole(selectedRole);
-    setCurrentView('dashboard');
-    // If we wanted to simulate a recurring user, we could load data here.
-    // For now, we stick to the prompt: Accountant starts with empty state.
-    if (selectedRole === UserRole.ACCOUNTANT) {
-      setClients([]); 
-    }
+  // Simulated Database (In a real app, this is Backend)
+  // We keep a record of all registered users in session memory to allow logout/login
+  const [usersDB, setUsersDB] = useState<User[]>([
+    // Add a demo user for testing if needed, or keep empty
+  ]);
+  
+  // Map of UserID -> Client[]
+  const [dataDB, setDataDB] = useState<Record<string, Client[]>>({
+    // 'demo_id': DEMO_CLIENTS (Removed global mock as requested, strictly per user now)
+  });
+
+  const handleLogin = (email: string, pass: string) => {
+    setAuthLoading(true);
+    setAuthError(null);
+
+    // Simulate API Delay
+    setTimeout(() => {
+      const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (user) {
+        // Simple mock password check (in real app, use hashed passwords)
+        if (pass.length >= 4) { 
+          setCurrentUser(user);
+          // Load User Data
+          setClients(dataDB[user.id] || []);
+          setCurrentView('dashboard');
+        } else {
+          setAuthError('Palavra-passe incorreta.');
+        }
+      } else {
+        setAuthError('Utilizador não encontrado. Registe-se para começar.');
+      }
+      setAuthLoading(false);
+    }, 1000);
+  };
+
+  const handleRegister = (name: string, email: string, pass: string, role: UserRole) => {
+    setAuthLoading(true);
+    setAuthError(null);
+
+    setTimeout(() => {
+      const exists = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (exists) {
+        setAuthError('Este email já está registado.');
+        setAuthLoading(false);
+        return;
+      }
+
+      const newUser: User = {
+        id: `user_${Date.now()}`,
+        name,
+        email,
+        role,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
+      };
+
+      // Save to "DB"
+      setUsersDB([...usersDB, newUser]);
+      // Initialize Empty Data for new user
+      setDataDB({ ...dataDB, [newUser.id]: [] });
+      
+      // Auto Login
+      setCurrentUser(newUser);
+      setClients([]);
+      setCurrentView('dashboard');
+      setAuthLoading(false);
+    }, 1000);
   };
 
   const handleLogout = () => {
-    setRole(UserRole.NONE);
-    setClients([]); // Clear session data
+    // Persist current state to "DB" before leaving
+    if (currentUser) {
+      setDataDB({ ...dataDB, [currentUser.id]: clients });
+    }
+    setCurrentUser(null);
+    setClients([]);
+    setCurrentView('dashboard');
   };
 
   // Client CRUD Operations
   const handleAddClient = (newClient: Client) => {
-    setClients(prev => [newClient, ...prev]);
+    const updatedClients = [newClient, ...clients];
+    setClients(updatedClients);
+    // Update "DB" immediately
+    if (currentUser) {
+       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
+    }
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
-    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+    const updatedClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
+    setClients(updatedClients);
+    if (currentUser) {
+       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
+    }
   };
 
   const handleDeleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
+    const updatedClients = clients.filter(c => c.id !== id);
+    setClients(updatedClients);
+    if (currentUser) {
+       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
+    }
   };
 
-  if (role === UserRole.NONE) {
-    return <Login onLogin={handleLogin} />;
+  const handleUpdateUser = (updatedData: Partial<User>) => {
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...updatedData };
+      setCurrentUser(updatedUser);
+      // Update in DB
+      setUsersDB(usersDB.map(u => u.id === currentUser.id ? updatedUser : u));
+    }
+  };
+
+  if (!currentUser) {
+    return (
+      <Login 
+        onLogin={handleLogin} 
+        onRegister={handleRegister} 
+        isLoading={authLoading}
+        error={authError}
+        setError={setAuthError}
+      />
+    );
   }
 
   const renderContent = () => {
     return (
       <Suspense fallback={<LoadingFallback />}>
-        {role === UserRole.CLIENT ? (
+        {currentUser.role === UserRole.CLIENT ? (
           (() => {
             switch (currentView) {
               case 'dashboard':
                 return <DashboardClient />;
-              case 'documents':
-                return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Arquivo Digital em construção 🚧</div>;
-              case 'authorizations':
-                return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Autorizações de Pagamento em construção 🚧</div>;
               case 'profile':
-                return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Perfil da Empresa em construção 🚧</div>;
+                return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               default:
+                 // Fallback for demo purposes as Client view is less developed in this prompt
                 return <DashboardClient />;
             }
           })()
@@ -80,22 +176,36 @@ const App: React.FC = () => {
           (() => {
             switch (currentView) {
               case 'dashboard':
-                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} />;
+                return (
+                  <DashboardAccountant 
+                    onNavigate={setCurrentView} 
+                    clients={clients} 
+                    user={currentUser}
+                  />
+                );
               case 'clients':
-                return <ClientsManagement 
-                  clients={clients} 
-                  onAddClient={handleAddClient}
-                  onUpdateClient={handleUpdateClient}
-                  onDeleteClient={handleDeleteClient}
-                />;
+                return (
+                  <ClientsManagement 
+                    clients={clients} 
+                    onAddClient={handleAddClient}
+                    onUpdateClient={handleUpdateClient}
+                    onDeleteClient={handleDeleteClient}
+                  />
+                );
+              case 'settings':
+                  return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               case 'documents':
                 return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Validação em Lote em construção 🚧</div>;
               case 'obligations':
                   return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Gestão de Obrigações em construção 🚧</div>;
-              case 'settings':
-                  return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Configurações do Escritório em construção 🚧</div>;
               default:
-                return <DashboardAccountant onNavigate={setCurrentView} clients={clients} />;
+                return (
+                  <DashboardAccountant 
+                    onNavigate={setCurrentView} 
+                    clients={clients} 
+                    user={currentUser}
+                  />
+                );
             }
           })()
         )}
@@ -105,7 +215,7 @@ const App: React.FC = () => {
 
   return (
     <Layout 
-      role={role} 
+      user={currentUser}
       currentView={currentView} 
       onNavigate={setCurrentView}
       onLogout={handleLogout}
