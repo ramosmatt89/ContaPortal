@@ -174,7 +174,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     // Mailto body must be plain text
     const body = `Olá ${previewClient.contactPerson},\n\n` +
                  `Foi convidado por ${currentUser.name} para aceder ao seu portal de documentos contabilísticos.\n\n` +
-                 `Clique no link abaixo para aceitar o convite e definir a sua palavra-passe:\n` +
+                 `Para aceitar o convite e configurar o seu acesso, clique no link abaixo:\n` +
                  `${generatedLink}\n\n` +
                  `Este link é válido por 7 dias.\n\n` +
                  `Cumprimentos,\n${currentUser.name}`;

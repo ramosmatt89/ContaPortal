@@ -245,7 +245,7 @@ const Login: React.FC<LoginProps> = ({
               ) : (
                 <>
                   <span>
-                    {isRegistering ? (validatedInvite ? 'Concluir Registo' : 'Criar Conta') : 'Entrar'}
+                    {isRegistering ? (validatedInvite ? 'Aceitar Convite' : 'Criar Conta') : 'Entrar'}
                   </span>
                   <ArrowRight size={20} />
                 </>
