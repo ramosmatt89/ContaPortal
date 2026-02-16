@@ -18,7 +18,8 @@ import {
   Smartphone,
   AlertTriangle,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 
 interface ClientsManagementProps {
@@ -163,6 +164,23 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setGeneratedLink(null);
     setPreviewClient(null);
     setNewClient({ companyName: '', nif: '', email: '', contactPerson: '' });
+  };
+
+  // --- NEW FUNCTION: Open Default Email App ---
+  const handleOpenEmailApp = () => {
+    if (!generatedLink || !previewClient) return;
+
+    const subject = `Convite: Acesso ao Portal - ${currentUser.name}`;
+    // Mailto body must be plain text
+    const body = `Olá ${previewClient.contactPerson},\n\n` +
+                 `Foi convidado por ${currentUser.name} para aceder ao seu portal de documentos contabilísticos.\n\n` +
+                 `Clique no link abaixo para aceitar o convite e definir a sua palavra-passe:\n` +
+                 `${generatedLink}\n\n` +
+                 `Este link é válido por 7 dias.\n\n` +
+                 `Cumprimentos,\n${currentUser.name}`;
+
+    window.location.href = `mailto:${previewClient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    showToast('App de e-mail aberta.');
   };
 
   const toggleClientStatus = (client: Client) => {
@@ -377,21 +395,27 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                       <div className="w-8 h-8 rounded-full bg-green-100 text-status-success flex items-center justify-center">
                          <CheckCircle size={16} />
                       </div>
-                      <h3 className="text-lg font-bold text-neutral-dark">Convite Enviado com Sucesso</h3>
+                      <h3 className="text-lg font-bold text-neutral-dark">Convite Gerado</h3>
                    </div>
                    <button onClick={handleCloseModal} className="text-neutral-medium hover:text-neutral-dark p-2 hover:bg-neutral-light rounded-full transition-colors">
                      <Ban size={20} />
                    </button>
                  </div>
                  
-                 <p className="text-sm text-neutral-medium mb-4">
-                    O e-mail abaixo foi enviado para <span className="font-bold text-neutral-dark">{previewClient?.email}</span>.
-                 </p>
+                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-6 text-sm text-neutral-dark">
+                    <p className="flex gap-2">
+                       <span className="font-bold text-brand-blue">Nota:</span> 
+                       Como este é um sistema de demonstração (Frontend), o e-mail não é enviado automaticamente pelo servidor.
+                    </p>
+                    <p className="mt-2 ml-10 text-neutral-medium">
+                       Utilize o botão <strong>"Enviar E-mail"</strong> abaixo para abrir a sua aplicação de e-mail (Outlook, Gmail, etc.) com o texto preenchido.
+                    </p>
+                 </div>
 
                  {/* EMAIL CONTAINER (Newsletter Style) */}
                  <div className="bg-[#F2F4F7] rounded-xl p-4 md:p-8 border border-neutral-light overflow-hidden relative shadow-inner">
                     <div className="absolute top-2 right-4 text-[10px] text-neutral-400 font-mono flex items-center gap-1">
-                       <Smartphone size={10} /> Visualização Mobile
+                       <Smartphone size={10} /> Pré-visualização
                     </div>
                     
                     {/* EMAIL CARD */}
@@ -460,15 +484,16 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     </div>
                  </div>
                  
-                 <div className="mt-6 flex justify-between items-center">
+                 <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <button 
+                       onClick={handleOpenEmailApp} 
+                       className="w-full md:w-auto px-6 py-3 rounded-2xl bg-brand-blue text-white font-bold text-sm hover:bg-blue-600 shadow-lg shadow-brand-blue/20 flex items-center justify-center gap-2 transition-transform active:scale-95"
+                    >
+                        <Send size={18}/> Enviar E-mail (App Padrão)
+                    </button>
+                    
                     <button onClick={() => copyLink(generatedLink)} className="text-brand-blue text-sm font-bold flex items-center gap-2 hover:underline">
                         <ExternalLink size={14}/> Copiar Link Manualmente
-                    </button>
-                    <button 
-                       onClick={handleCloseModal}
-                       className="px-6 py-3 rounded-2xl bg-neutral-dark text-white font-bold text-sm hover:bg-black transition-colors"
-                    >
-                       Fechar
                     </button>
                  </div>
               </div>
@@ -483,7 +508,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     Novo Convite
                   </h3>
                   <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
-                    Preencha os dados abaixo. Um e-mail automático será enviado.
+                    Preencha os dados abaixo. Um e-mail automático será gerado.
                   </p>
                 </div>
                 
@@ -561,7 +586,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                       ) : (
                         <>
                           <span>Gerar Convite</span>
-                          <Send size={18} />
+                          <ArrowRight size={18} />
                         </>
                       )}
                     </button>
