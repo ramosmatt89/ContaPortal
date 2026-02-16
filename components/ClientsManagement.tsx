@@ -14,9 +14,11 @@ import {
   MoreVertical,
   ShieldAlert,
   Clock,
-  ArrowRight,
-  ShieldCheck,
-  Smartphone
+  ExternalLink,
+  Smartphone,
+  AlertTriangle,
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
 
 interface ClientsManagementProps {
@@ -38,6 +40,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [previewClient, setPreviewClient] = useState<any>(null); // For previewing the email content
   
   // Toast state for actions
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -70,14 +73,14 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const generateSecureInvite = () => {
     const token = crypto.randomUUID();
     const expires = new Date();
-    expires.setHours(expires.getHours() + 48);
+    // 7 Days Expiration
+    expires.setDate(expires.getDate() + 7);
     return { token, expires: expires.toISOString() };
   };
 
   const getLinkFromToken = (token: string) => {
-    // Robust URL construction to avoid format errors
     const url = new URL(window.location.href);
-    url.search = ''; // Clear existing params like ?view=...
+    url.search = ''; 
     url.searchParams.set('token', token);
     return url.toString();
   };
@@ -85,7 +88,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation: Check for duplicates (Email always, NIF only if provided)
+    // Validation
     const alreadyExists = clients.some(c => {
       const emailExists = c.email.toLowerCase() === newClient.email.toLowerCase();
       const nifExists = newClient.nif ? c.nif === newClient.nif : false;
@@ -107,7 +110,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       const createdClient: Client = {
         id: newId,
         companyName: newClient.companyName,
-        nif: newClient.nif || '', // Handle empty NIF
+        nif: newClient.nif || '', 
         email: newClient.email,
         contactPerson: newClient.contactPerson,
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
@@ -122,28 +125,43 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       
       const link = getLinkFromToken(token);
       setGeneratedLink(link);
+      setPreviewClient(createdClient);
       
       setIsLoading(false);
-      showToast(`Convite enviado com sucesso.`);
+      showToast(`Convite gerado com sucesso.`);
     }, 1500);
   };
 
   const handleResendInvite = (client: Client) => {
-    if (!client.inviteToken) {
-       showToast("Erro: Token inválido. Remova e convide novamente.");
-       return;
-    }
-    const link = getLinkFromToken(client.inviteToken);
-    const subject = `Convite: Portal ${currentUser.name}`;
-    const body = `Olá,\n\nVocê foi convidado para o portal de contabilidade.\n\nClique aqui para aceitar: ${link}\n\nO link expira em 48 horas.`;
+    // Regenerate token if expired or missing, otherwise use existing
+    let token = client.inviteToken;
+    let expires = client.inviteExpires;
     
-    window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    showToast(`App de e-mail aberta para ${client.email}`);
+    const isExpired = expires && new Date(expires) < new Date();
+
+    if (!token || isExpired) {
+        const gen = generateSecureInvite();
+        token = gen.token;
+        expires = gen.expires;
+        onUpdateClient({
+            ...client,
+            status: 'PENDING',
+            inviteToken: token,
+            inviteExpires: expires
+        });
+        showToast("Novo token de 7 dias gerado.");
+    }
+
+    const link = getLinkFromToken(token!);
+    setGeneratedLink(link);
+    setPreviewClient(client);
+    setIsModalOpen(true); // Open the preview modal again
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setGeneratedLink(null);
+    setPreviewClient(null);
     setNewClient({ companyName: '', nif: '', email: '', contactPerson: '' });
   };
 
@@ -163,17 +181,25 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     showToast('Link copiado para a área de transferência');
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-      case 'INVITED':
-        return <span className="px-3 py-1 rounded-full bg-blue-100 text-brand-blue border border-blue-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><Mail size={12}/> Convite Pendente</span>;
+  const getStatusBadge = (client: Client) => {
+    // Check Expiration
+    if (client.status === 'PENDING' || client.status === 'INVITED') {
+        const isExpired = client.inviteExpires && new Date(client.inviteExpires) < new Date();
+        if (isExpired) {
+             return <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><AlertTriangle size={12}/> Convite Expirado</span>;
+        }
+        return <span className="px-3 py-1 rounded-full bg-blue-100 text-brand-blue border border-blue-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><Mail size={12}/> Convite Enviado</span>;
+    }
+
+    switch (client.status) {
       case 'INACTIVE':
         return <span className="px-3 py-1 rounded-full bg-neutral-200 text-neutral-600 border border-neutral-300 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><Ban size={12}/> Inativo</span>;
       case 'OVERDUE':
         return <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><ShieldAlert size={12}/> Atrasado</span>;
+      case 'ACTIVE':
+        return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Convite Aceite</span>;
       default:
-        return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Ativo</span>;
+        return null;
     }
   };
 
@@ -193,7 +219,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         <div>
           <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
           <p className="text-neutral-medium text-lg max-w-xl leading-relaxed">
-            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Seguro</span>.
+            Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Seguro (7 dias)</span>.
           </p>
         </div>
 
@@ -221,103 +247,109 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredClients.map(client => (
-          <div key={client.id} className="glass-panel p-6 rounded-[2rem] relative group hover:-translate-y-1 transition-transform duration-300">
-             
-             <div className="absolute top-6 right-6">
-               {getStatusBadge(client.status)}
-             </div>
+        {filteredClients.map(client => {
+             const isExpired = client.inviteExpires && new Date(client.inviteExpires) < new Date() && client.status === 'PENDING';
+             return (
+              <div key={client.id} className="glass-panel p-6 rounded-[2rem] relative group hover:-translate-y-1 transition-transform duration-300">
+                 
+                 <div className="absolute top-6 right-6">
+                   {getStatusBadge(client)}
+                 </div>
 
-             <div className="flex items-center gap-4 mb-6">
-               <div className="relative">
-                 <img src={client.avatarUrl} alt={client.companyName} className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-white" />
-                 <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm">
-                   <div className={`w-3 h-3 rounded-full ${client.status === 'ACTIVE' ? 'bg-status-success' : client.status === 'PENDING' ? 'bg-brand-blue' : 'bg-neutral-medium'}`}></div>
+                 <div className="flex items-center gap-4 mb-6">
+                   <div className="relative">
+                     <img src={client.avatarUrl} alt={client.companyName} className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-white" />
+                     <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm">
+                       <div className={`w-3 h-3 rounded-full ${client.status === 'ACTIVE' ? 'bg-status-success' : client.status === 'PENDING' ? 'bg-brand-blue' : 'bg-neutral-medium'}`}></div>
+                     </div>
+                   </div>
+                   <div>
+                     <h3 className="font-bold text-lg text-neutral-dark leading-tight">{client.companyName}</h3>
+                     <p className="text-sm text-neutral-medium font-mono tracking-wide opacity-80">{client.nif || 'N/A'}</p>
+                   </div>
                  </div>
-               </div>
-               <div>
-                 <h3 className="font-bold text-lg text-neutral-dark leading-tight">{client.companyName}</h3>
-                 <p className="text-sm text-neutral-medium font-mono tracking-wide opacity-80">{client.nif || 'N/A'}</p>
-               </div>
-             </div>
 
-             <div className="bg-white/40 rounded-2xl p-4 mb-6 space-y-3">
-               <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
-                   <UserIcon size={14} />
+                 <div className="bg-white/40 rounded-2xl p-4 mb-6 space-y-3">
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
+                       <UserIcon size={14} />
+                     </div>
+                     <div className="flex-1 overflow-hidden">
+                       <p className="text-xs text-neutral-medium font-bold uppercase">Contacto</p>
+                       <p className="text-sm font-semibold text-neutral-dark truncate">{client.contactPerson}</p>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
+                       <Mail size={14} />
+                     </div>
+                     <div className="flex-1 overflow-hidden">
+                       <p className="text-xs text-neutral-medium font-bold uppercase">Email</p>
+                       <p className="text-sm font-semibold text-neutral-dark truncate" title={client.email}>{client.email}</p>
+                     </div>
+                   </div>
                  </div>
-                 <div className="flex-1 overflow-hidden">
-                   <p className="text-xs text-neutral-medium font-bold uppercase">Contacto</p>
-                   <p className="text-sm font-semibold text-neutral-dark truncate">{client.contactPerson}</p>
-                 </div>
-               </div>
-               <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
-                   <Mail size={14} />
-                 </div>
-                 <div className="flex-1 overflow-hidden">
-                   <p className="text-xs text-neutral-medium font-bold uppercase">Email</p>
-                   <p className="text-sm font-semibold text-neutral-dark truncate" title={client.email}>{client.email}</p>
-                 </div>
-               </div>
-             </div>
 
-             <div className="flex items-center justify-between pt-2 border-t border-white/50">
-               <span className="text-xs font-bold text-neutral-medium">
-                 {client.status === 'PENDING' ? 'Aguardando aceitação' : 'Acesso permitido'}
-               </span>
-               
-               <div className="flex items-center gap-2">
-                 {(client.status === 'PENDING' || client.status === 'INVITED') && (
-                    <>
-                      <button 
-                        title="Reenviar E-mail"
-                        onClick={() => handleResendInvite(client)}
-                        className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
+                 <div className="flex items-center justify-between pt-2 border-t border-white/50">
+                   <span className={`text-xs font-bold ${isExpired ? 'text-status-error' : 'text-neutral-medium'}`}>
+                     {client.status === 'ACTIVE' ? 'Acesso Ativo' : isExpired ? 'Token Expirado' : 'Aguardando Registo'}
+                   </span>
+                   
+                   <div className="flex items-center gap-2">
+                     {(client.status === 'PENDING' || client.status === 'INVITED') && (
+                        <>
+                          <button 
+                            title="Reenviar Convite"
+                            onClick={() => handleResendInvite(client)}
+                            className={`p-2 rounded-xl transition-colors ${isExpired ? 'bg-red-50 text-status-error hover:bg-red-100' : 'bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white'}`}
+                          >
+                            {isExpired ? <RefreshCw size={18} /> : <Send size={18} />}
+                          </button>
+                          
+                          {!isExpired && (
+                            <button 
+                                title="Copiar Link"
+                                onClick={() => copyLink(getLinkFromToken(client.inviteToken || ''))}
+                                className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-neutral-dark transition-colors"
+                            >
+                                <Copy size={18} />
+                            </button>
+                          )}
+                        </>
+                     )}
+
+                     <button className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium transition-colors">
+                       <MoreVertical size={18} />
+                     </button>
+
+                     <button 
+                        title={client.status === 'INACTIVE' ? 'Ativar' : 'Desativar'}
+                        onClick={() => toggleClientStatus(client)}
+                        className={`p-2 rounded-xl transition-colors ${
+                          client.status === 'INACTIVE' 
+                            ? 'bg-green-50 text-status-success hover:bg-green-100' 
+                            : 'bg-neutral-light text-neutral-medium hover:bg-neutral-200'
+                        }`}
                       >
-                        <Send size={18} />
+                        {client.status === 'INACTIVE' ? <CheckCircle size={18} /> : <Ban size={18} />}
                       </button>
+                      
                       <button 
-                        title="Copiar Link"
-                        onClick={() => copyLink(getLinkFromToken(client.inviteToken || ''))}
-                        className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-neutral-dark transition-colors"
+                        title="Remover"
+                        onClick={() => {
+                           if (window.confirm('Tem a certeza que deseja remover este cliente? Esta ação é irreversível.')) {
+                             onDeleteClient(client.id);
+                           }
+                        }}
+                        className="p-2 rounded-xl hover:bg-red-50 text-neutral-medium hover:text-status-error transition-colors"
                       >
-                        <Copy size={18} />
+                        <Trash2 size={18} />
                       </button>
-                    </>
-                 )}
-
-                 <button className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium transition-colors">
-                   <MoreVertical size={18} />
-                 </button>
-
-                 <button 
-                    title={client.status === 'INACTIVE' ? 'Ativar' : 'Desativar'}
-                    onClick={() => toggleClientStatus(client)}
-                    className={`p-2 rounded-xl transition-colors ${
-                      client.status === 'INACTIVE' 
-                        ? 'bg-green-50 text-status-success hover:bg-green-100' 
-                        : 'bg-neutral-light text-neutral-medium hover:bg-neutral-200'
-                    }`}
-                  >
-                    {client.status === 'INACTIVE' ? <CheckCircle size={18} /> : <Ban size={18} />}
-                  </button>
-                  
-                  <button 
-                    title="Remover"
-                    onClick={() => {
-                       if (window.confirm('Tem a certeza que deseja remover este cliente? Esta ação é irreversível.')) {
-                         onDeleteClient(client.id);
-                       }
-                    }}
-                    className="p-2 rounded-xl hover:bg-red-50 text-neutral-medium hover:text-status-error transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-               </div>
-             </div>
-          </div>
-        ))}
+                   </div>
+                 </div>
+              </div>
+            );
+        })}
 
         {filteredClients.length === 0 && (
           <div className="col-span-full py-12 text-center">
@@ -335,10 +367,10 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-md transition-opacity" onClick={handleCloseModal}></div>
           
-          <div className={`relative w-full ${generatedLink ? 'max-w-2xl' : 'max-w-lg'} bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden transition-all`}>
+          <div className={`relative w-full ${generatedLink ? 'max-w-2xl' : 'max-w-lg'} bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden transition-all max-h-[90vh] overflow-y-auto`}>
             
             {generatedLink ? (
-              // --- EMAIL PREVIEW TEMPLATE ---
+              // --- NEWSLETTER EMAIL PREVIEW TEMPLATE ---
               <div className="animate-fade-in-up">
                  <div className="flex justify-between items-center mb-6">
                    <div className="flex items-center gap-2">
@@ -351,77 +383,92 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                      <Ban size={20} />
                    </button>
                  </div>
+                 
+                 <p className="text-sm text-neutral-medium mb-4">
+                    O e-mail abaixo foi enviado para <span className="font-bold text-neutral-dark">{previewClient?.email}</span>.
+                 </p>
 
                  {/* EMAIL CONTAINER (Newsletter Style) */}
-                 <div className="bg-[#F8F9FA] rounded-xl p-4 md:p-8 border border-neutral-light overflow-hidden relative">
+                 <div className="bg-[#F2F4F7] rounded-xl p-4 md:p-8 border border-neutral-light overflow-hidden relative shadow-inner">
                     <div className="absolute top-2 right-4 text-[10px] text-neutral-400 font-mono flex items-center gap-1">
-                       <Smartphone size={10} /> Pré-visualização Mobile
+                       <Smartphone size={10} /> Visualização Mobile
                     </div>
                     
                     {/* EMAIL CARD */}
-                    <div className="max-w-sm mx-auto bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+                    <div className="max-w-[400px] mx-auto bg-white rounded-t-2xl rounded-b-2xl shadow-sm border-t-4 border-t-brand-blue overflow-hidden">
                        
-                       {/* Header */}
-                       <div className="p-6 text-center border-b border-neutral-light/50">
+                       {/* Header: Identity */}
+                       <div className="p-8 pb-4 text-center">
                           {currentUser.avatarUrl ? (
-                             <img src={currentUser.avatarUrl} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover border border-neutral-100 shadow-sm" alt="Logo" />
+                             <img src={currentUser.avatarUrl} className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-md" alt="Logo" />
                           ) : (
-                             <div className="w-16 h-16 rounded-full bg-brand-blue text-white mx-auto mb-3 flex items-center justify-center text-xl font-bold">
+                             <div className="w-16 h-16 rounded-full bg-brand-blue text-white mx-auto mb-4 flex items-center justify-center text-xl font-bold">
                                 {currentUser.name.charAt(0)}
                              </div>
                           )}
-                          <h2 className="text-neutral-dark font-bold text-lg">{currentUser.name}</h2>
-                          <p className="text-xs text-neutral-medium uppercase tracking-wide mt-1">Portal de Contabilidade</p>
+                          <h2 className="text-neutral-dark font-bold text-xl">{currentUser.name}</h2>
+                          <p className="text-xs text-neutral-medium uppercase tracking-wide mt-1 font-semibold">Gabinete de Contabilidade</p>
                        </div>
 
-                       {/* Body */}
-                       <div className="p-6 text-center">
-                          <p className="text-neutral-dark text-sm leading-relaxed mb-6">
-                             Olá <strong>{newClient.contactPerson}</strong>,<br/><br/>
-                             Foi convidado por <span className="text-brand-blue font-semibold">{currentUser.name}</span> para aceder ao seu portal de contabilidade exclusivo.
+                       {/* Divider */}
+                       <div className="w-full h-px bg-neutral-light my-2"></div>
+
+                       {/* Body: Message */}
+                       <div className="p-8 pt-6 text-center">
+                          <h1 className="text-xl font-bold text-neutral-dark mb-4">Bem-vindo(a) ao seu Portal</h1>
+                          <p className="text-neutral-600 text-[15px] leading-relaxed mb-8">
+                             Olá <strong>{previewClient?.contactPerson.split(' ')[0]}</strong>,<br/><br/>
+                             Foi convidado para aceder ao seu portal de documentos contabilísticos. Aqui poderá consultar faturas, enviar despesas e validar impostos de forma segura.
                           </p>
 
+                          {/* Primary Button */}
                           <button 
-                             className="block w-full py-3 bg-[#007BFF] text-white rounded-xl font-bold text-sm shadow-md hover:bg-blue-600 transition-colors mb-6"
+                             className="block w-full py-4 bg-[#007BFF] text-white rounded-lg font-bold text-base shadow-lg hover:bg-blue-600 transition-colors mb-6"
                              onClick={() => copyLink(generatedLink)}
                           >
                              Aceitar Convite
                           </button>
 
-                          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 flex items-center gap-2 justify-center mb-6">
-                             <Clock size={14} className="text-yellow-600" />
-                             <span className="text-xs text-yellow-800 font-medium">Este convite expira em 48 horas</span>
+                          {/* Expiration Badge */}
+                          <div className="inline-flex items-center gap-2 bg-yellow-50 px-3 py-1.5 rounded-md border border-yellow-100 mb-8">
+                             <Clock size={12} className="text-yellow-600" />
+                             <span className="text-[11px] text-yellow-800 font-medium">Este link expira em 7 dias</span>
                           </div>
 
-                          <div className="text-left">
-                             <p className="text-[10px] text-neutral-medium mb-1">Se o botão não funcionar, copie este link:</p>
-                             <div className="bg-neutral-50 border border-neutral-light rounded p-2 flex items-center gap-2">
+                          {/* Fallback Link */}
+                          <div className="text-left border-t border-neutral-light pt-6">
+                             <p className="text-[11px] text-neutral-400 mb-2">Se o botão não funcionar, copie este link:</p>
+                             <div className="bg-neutral-50 border border-neutral-200 rounded p-2 flex items-center gap-2 overflow-hidden">
                                 <code className="text-[10px] text-neutral-500 truncate flex-1 block font-mono">
                                    {generatedLink}
                                 </code>
-                                <button onClick={() => copyLink(generatedLink)} className="text-brand-blue hover:text-brand-purple">
+                                <button onClick={() => copyLink(generatedLink)} className="text-brand-blue hover:text-brand-purple shrink-0">
                                    <Copy size={12} />
                                 </button>
                              </div>
                           </div>
                        </div>
 
-                       {/* Footer */}
-                       <div className="bg-neutral-50 p-4 text-center border-t border-neutral-light/50">
-                          <div className="flex items-center justify-center gap-1 text-neutral-400 text-[10px]">
-                             <ShieldCheck size={10} />
-                             <span>Este é um convite seguro e pessoal enviado via ContaPortal.</span>
+                       {/* Footer: Trust */}
+                       <div className="bg-[#F8F9FA] p-4 text-center border-t border-neutral-light">
+                          <div className="flex flex-col items-center gap-2 text-neutral-400 text-[10px]">
+                             <ShieldCheck size={14} />
+                             <span>Convite seguro enviado via ContaPortal</span>
+                             <span>&copy; {new Date().getFullYear()} {currentUser.name}</span>
                           </div>
                        </div>
                     </div>
                  </div>
                  
-                 <div className="mt-6 flex justify-end">
+                 <div className="mt-6 flex justify-between items-center">
+                    <button onClick={() => copyLink(generatedLink)} className="text-brand-blue text-sm font-bold flex items-center gap-2 hover:underline">
+                        <ExternalLink size={14}/> Copiar Link Manualmente
+                    </button>
                     <button 
                        onClick={handleCloseModal}
                        className="px-6 py-3 rounded-2xl bg-neutral-dark text-white font-bold text-sm hover:bg-black transition-colors"
                     >
-                       Fechar Pré-visualização
+                       Fechar
                     </button>
                  </div>
               </div>
@@ -436,7 +483,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                     Novo Convite
                   </h3>
                   <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
-                    Preencha os dados abaixo. Um token único de 48h será gerado.
+                    Preencha os dados abaixo. Um e-mail automático será enviado.
                   </p>
                 </div>
                 
@@ -513,7 +560,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                         <Loader2 size={20} className="animate-spin" />
                       ) : (
                         <>
-                          <span>Enviar Convite</span>
+                          <span>Gerar Convite</span>
                           <Send size={18} />
                         </>
                       )}

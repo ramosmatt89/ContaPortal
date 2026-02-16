@@ -101,18 +101,17 @@ const App: React.FC = () => {
         
         // 1. Check Expiration
         if (client.inviteExpires && new Date(client.inviteExpires) < new Date()) {
-          setInviteError("Este convite expirou. Solicite um novo ao seu contabilista.");
+          setInviteError("Este link de convite expirou (validade de 7 dias). Solicite um novo ao seu contabilista.");
         } 
         // 2. Check Status
         else if (client.status !== 'PENDING' && client.status !== 'INVITED') {
-           // If already active, maybe redirect to login normally or show message
-           setInviteError("Este convite já foi utilizado.");
+           setInviteError("Este convite já foi utilizado ou a conta já está ativa.");
         } else {
            // Valid Invite
            setPendingInviteClient(client);
         }
       } else {
-        setInviteError("Convite inválido ou não encontrado.");
+        setInviteError("Convite inválido ou não encontrado. Verifique se copiou o link corretamente.");
       }
       
       // Clear URL to clean up (optional, good for UX)
@@ -199,8 +198,9 @@ const App: React.FC = () => {
         setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
       }
 
-      // Sync Invitation Logic
+      // Sync Invitation Logic (Associate Client to Accountant)
       if (pendingInviteClient) {
+         // Find which accountant sent this invite
          const accountantId = Object.keys(dataDB).find(accId => 
              dataDB[accId].some(c => c.id === pendingInviteClient.id)
          );
@@ -210,8 +210,12 @@ const App: React.FC = () => {
                 c.id === pendingInviteClient.id 
                   ? { 
                       ...c, 
+                      // Update Status to ACTIVE (Convite Aceite)
                       status: 'ACTIVE' as const,
+                      // Clear invite data to invalidate link
                       inviteToken: undefined,
+                      inviteExpires: undefined,
+                      // Sync name if changed during register
                       companyName: newUser.name,
                       avatarUrl: newUser.avatarUrl || c.avatarUrl
                     } 
@@ -222,7 +226,7 @@ const App: React.FC = () => {
          
          setPendingInviteClient(null);
       } else {
-         // Legacy invite matching
+         // Legacy invite matching (fallback)
          let wasInvited = false;
          const updatedDataDB = { ...dataDB };
          
