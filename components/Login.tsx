@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
-import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight, Check } from 'lucide-react';
+import { Briefcase, User, ArrowRight, Lock, Mail, Key, Loader2, ChevronRight, Check, CheckSquare, Square } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (email: string, pass: string) => void;
+  onLogin: (email: string, pass: string, rememberMe: boolean) => void;
   onRegister: (name: string, email: string, pass: string, role: UserRole) => void;
   isLoading?: boolean;
   error?: string | null;
@@ -22,6 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   // Check for Invite Params
   useEffect(() => {
@@ -37,10 +38,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
     }
     
     if (logo) {
-       // In a real app, 'logo' might be a URL. For demo, if it's just a flag, we might use a placeholder
-       if (logo === 'demo') {
-          // just leave null or set a demo image
-       } else {
+       if (logo !== 'demo') {
          setInviterLogo(logo);
        }
     }
@@ -55,7 +53,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
     if (isRegistering) {
       onRegister(name, email, password, role);
     } else {
-      onLogin(email, password);
+      onLogin(email, password, rememberMe);
     }
   };
 
@@ -179,7 +177,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-dark ml-2">Palavra-passe</label>
+              <div className="flex justify-between items-center ml-2">
+                 <label className="text-xs font-bold text-neutral-dark">Palavra-passe</label>
+                 {!isRegistering && <a href="#" className="text-xs font-bold text-brand-blue hover:text-brand-purple">Esqueceu-se?</a>}
+              </div>
+              
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
                 <input 

@@ -21,28 +21,56 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
-  // Authentication State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  // --- STATE INITIALIZATION WITH PERSISTENCE ---
 
-  const [currentView, setCurrentView] = useState('dashboard');
-  
-  // Data State (Isolated per User)
-  const [clients, setClients] = useState<Client[]>([]);
-
-  // Simulated Database (In a real app, this is Backend)
-  // We keep a record of all registered users in session memory to allow logout/login
-  const [usersDB, setUsersDB] = useState<User[]>([
-    // Add a demo user for testing if needed, or keep empty
-  ]);
-  
-  // Map of UserID -> Client[]
-  const [dataDB, setDataDB] = useState<Record<string, Client[]>>({
-    // 'demo_id': DEMO_CLIENTS (Removed global mock as requested, strictly per user now)
+  // Load User Database from LocalStorage or initialize empty
+  const [usersDB, setUsersDB] = useState<User[]>(() => {
+    const saved = localStorage.getItem('cp_usersDB');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const handleLogin = (email: string, pass: string) => {
+  // Load Data Database (Clients) from LocalStorage
+  const [dataDB, setDataDB] = useState<Record<string, Client[]>>(() => {
+    const saved = localStorage.getItem('cp_dataDB');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  // Load Current Session
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('cp_currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [clients, setClients] = useState<Client[]>([]);
+
+  // --- PERSISTENCE EFFECTS ---
+
+  // Save Users DB whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cp_usersDB', JSON.stringify(usersDB));
+  }, [usersDB]);
+
+  // Save Data DB whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cp_dataDB', JSON.stringify(dataDB));
+  }, [dataDB]);
+
+  // Load Clients for the current user when logged in
+  useEffect(() => {
+    if (currentUser) {
+      const userClients = dataDB[currentUser.id] || [];
+      setClients(userClients);
+    } else {
+      setClients([]);
+    }
+  }, [currentUser, dataDB]);
+
+  // --- AUTH HANDLERS ---
+
+  const handleLogin = (email: string, pass: string, rememberMe: boolean) => {
     setAuthLoading(true);
     setAuthError(null);
 
@@ -51,11 +79,24 @@ const App: React.FC = () => {
       const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (user) {
-        // Simple mock password check (in real app, use hashed passwords)
+        // Simple mock password check
         if (pass.length >= 4) { 
           setCurrentUser(user);
-          // Load User Data
-          setClients(dataDB[user.id] || []);
+          
+          // Persistence Logic
+          if (rememberMe) {
+            localStorage.setItem('cp_currentUser', JSON.stringify(user));
+          } else {
+            // For session-only, we could use sessionStorage, but for this prototype
+            // we will just set state. If user refreshes without rememberMe, they lose session.
+            // However, the initial state logic above reads from localStorage.
+            // To support non-persistence, we'd need to clear localStorage on window close, 
+            // which is tricky in React. 
+            // For this 'SaaS' prototype, we'll treat "Remember Me" as "Persist to LocalStorage".
+            // If not checked, we won't save to LS (or remove it if it was there).
+            localStorage.removeItem('cp_currentUser'); 
+          }
+
           setCurrentView('dashboard');
         } else {
           setAuthError('Palavra-passe incorreta.');
@@ -87,61 +128,79 @@ const App: React.FC = () => {
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
       };
 
-      // Save to "DB"
-      setUsersDB([...usersDB, newUser]);
-      // Initialize Empty Data for new user
-      setDataDB({ ...dataDB, [newUser.id]: [] });
+      // Update State (Effect handles persistence)
+      setUsersDB(prev => [...prev, newUser]);
+      setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
       
-      // Auto Login
+      // Auto Login & Persist by default on register for better UX
       setCurrentUser(newUser);
-      setClients([]);
+      localStorage.setItem('cp_currentUser', JSON.stringify(newUser));
+      
       setCurrentView('dashboard');
       setAuthLoading(false);
     }, 1000);
   };
 
   const handleLogout = () => {
-    // Persist current state to "DB" before leaving
-    if (currentUser) {
-      setDataDB({ ...dataDB, [currentUser.id]: clients });
-    }
+    // Clear session
+    localStorage.removeItem('cp_currentUser');
     setCurrentUser(null);
     setClients([]);
     setCurrentView('dashboard');
   };
 
-  // Client CRUD Operations
+  // --- DATA HANDLERS ---
+
   const handleAddClient = (newClient: Client) => {
+    if (!currentUser) return;
+    
+    // Update Local State
     const updatedClients = [newClient, ...clients];
     setClients(updatedClients);
-    // Update "DB" immediately
-    if (currentUser) {
-       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
-    }
+    
+    // Update DB State (Effect handles persistence)
+    setDataDB(prev => ({
+      ...prev,
+      [currentUser.id]: updatedClients
+    }));
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
+    if (!currentUser) return;
+
     const updatedClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
     setClients(updatedClients);
-    if (currentUser) {
-       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
-    }
+    
+    setDataDB(prev => ({
+      ...prev,
+      [currentUser.id]: updatedClients
+    }));
   };
 
   const handleDeleteClient = (id: string) => {
+    if (!currentUser) return;
+
     const updatedClients = clients.filter(c => c.id !== id);
     setClients(updatedClients);
-    if (currentUser) {
-       setDataDB({ ...dataDB, [currentUser.id]: updatedClients });
-    }
+    
+    setDataDB(prev => ({
+      ...prev,
+      [currentUser.id]: updatedClients
+    }));
   };
 
   const handleUpdateUser = (updatedData: Partial<User>) => {
     if (currentUser) {
       const updatedUser = { ...currentUser, ...updatedData };
       setCurrentUser(updatedUser);
-      // Update in DB
-      setUsersDB(usersDB.map(u => u.id === currentUser.id ? updatedUser : u));
+      
+      // Update in stored DB
+      setUsersDB(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+      
+      // Update persistent session if it exists
+      if (localStorage.getItem('cp_currentUser')) {
+        localStorage.setItem('cp_currentUser', JSON.stringify(updatedUser));
+      }
     }
   };
 
@@ -168,7 +227,6 @@ const App: React.FC = () => {
               case 'profile':
                 return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
               default:
-                 // Fallback for demo purposes as Client view is less developed in this prompt
                 return <DashboardClient />;
             }
           })()

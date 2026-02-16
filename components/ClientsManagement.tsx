@@ -67,7 +67,9 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const generateInviteLink = (email: string) => {
     const inviterName = "O Seu Contabilista"; 
     const inviterLogoParam = "&logo=demo";
-    return `https://contaportal.pt/login?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(email)}`;
+    // Using current origin to make link work in dev/preview environment
+    const baseUrl = window.location.origin;
+    return `${baseUrl}?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(email)}`;
   };
 
   const handleInvite = (e: React.FormEvent) => {
@@ -83,7 +85,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         nif: newClient.nif || 'N/A',
         email: newClient.email,
         contactPerson: newClient.contactPerson,
-        avatarUrl: `https://picsum.photos/seed/${newId}/200`,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
         status: 'INVITED', // Default status for new invites
         pendingDocs: 0,
         accountantId: 'current_user'
@@ -99,6 +101,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       setGeneratedLink(link);
       
       setIsLoading(false);
+      showToast(`✉️ Convite enviado com sucesso para ${newClient.email}`);
     }, 1500);
   };
 
