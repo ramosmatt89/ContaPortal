@@ -106,11 +106,14 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const handleResendInvite = (client: Client) => {
-    // Simulate resending email
-    const confirmResend = window.confirm(`Reenviar convite para ${client.email}?`);
-    if (confirmResend) {
-      showToast(`✉️ Convite reenviado para ${client.email}`);
-    }
+    const link = generateInviteLink(client.email);
+    const subject = "Convite para o ContaPortal";
+    const body = `Olá,\n\nAqui está o seu link de acesso para o portal de contabilidade:\n\n${link}\n\nObrigado.`;
+    
+    // Trigger the user's default email client
+    window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    showToast(`✉️ Cliente de e-mail aberto para ${client.email}`);
   };
 
   const handleCloseModal = () => {
@@ -247,11 +250,11 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                  {client.status === 'INVITED' && (
                     <>
                       <button 
-                        title="Reenviar Convite por Email"
+                        title="Enviar E-mail com Convite"
                         onClick={() => handleResendInvite(client)}
                         className="p-2 rounded-xl bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white transition-colors"
                       >
-                        <RefreshCw size={18} />
+                        <Send size={18} />
                       </button>
                       <button 
                         title="Copiar Link Manualmente"

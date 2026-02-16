@@ -112,7 +112,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
         {/* Main Card */}
         <div className="glass-panel p-8 rounded-[2.5rem] relative overflow-hidden">
           
-          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10" autoComplete="on">
             
             {/* Role Selection (Only for Register & Not Invited) */}
             {isRegistering && !inviterName && (
@@ -144,10 +144,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
 
             {isRegistering && (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-neutral-dark ml-2">Nome Completo</label>
+                <label htmlFor="name" className="text-xs font-bold text-neutral-dark ml-2">Nome Completo</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
                   <input 
+                    id="name"
+                    name="name"
+                    autoComplete="name"
                     type="text" 
                     required
                     value={name}
@@ -160,10 +163,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
             )}
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-dark ml-2">E-mail</label>
+              <label htmlFor="email" className="text-xs font-bold text-neutral-dark ml-2">E-mail</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
                 <input 
+                  id="email"
+                  name="email"
+                  autoComplete="username"
                   type="email" 
                   required
                   value={email}
@@ -178,13 +184,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
 
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-2">
-                 <label className="text-xs font-bold text-neutral-dark">Palavra-passe</label>
+                 <label htmlFor="password" className="text-xs font-bold text-neutral-dark">Palavra-passe</label>
                  {!isRegistering && <a href="#" className="text-xs font-bold text-brand-blue hover:text-brand-purple">Esqueceu-se?</a>}
               </div>
               
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium" size={18} />
                 <input 
+                  id="password"
+                  name="password"
+                  autoComplete={isRegistering ? "new-password" : "current-password"}
                   type="password" 
                   required
                   value={password}
