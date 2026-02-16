@@ -13,8 +13,10 @@ import {
   User as UserIcon,
   MoreVertical,
   ShieldAlert,
-  RefreshCw,
-  MailCheck
+  Clock,
+  ArrowRight,
+  ShieldCheck,
+  Smartphone
 } from 'lucide-react';
 
 interface ClientsManagementProps {
@@ -36,7 +38,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-  const [lastInvitedEmail, setLastInvitedEmail] = useState<string>('');
   
   // Toast state for actions
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -67,28 +68,20 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const generateSecureInvite = () => {
-    // Generate Secure UUID Token
     const token = crypto.randomUUID();
-    
-    // Set Expiration (48 Hours from now)
     const expires = new Date();
     expires.setHours(expires.getHours() + 48);
-    
     return { token, expires: expires.toISOString() };
   };
 
   const getLinkFromToken = (token: string) => {
-    // Current origin + requested path format
     const baseUrl = window.location.origin;
-    // Note: In a SPA without a real backend router, this path serves as a visual indicator. 
-    // App.tsx handles the actual token parsing regardless of path usually, but we stick to the prompt's format.
     return `${baseUrl}/?token=${token}`;
   };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation: Check for duplicates
     const alreadyExists = clients.some(c => c.email.toLowerCase() === newClient.email.toLowerCase() || c.nif === newClient.nif);
     if (alreadyExists) {
       alert("Já existe um cliente com este Email ou NIF.");
@@ -97,22 +90,19 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
     setIsLoading(true);
 
-    // 1. Generate Security Data
     const { token, expires } = generateSecureInvite();
 
-    // Simulate Server Delay + Email Sending
     setTimeout(() => {
       const newId = `c${Date.now()}`;
       
-      // 2. Create Client Record
       const createdClient: Client = {
         id: newId,
         companyName: newClient.companyName,
-        nif: newClient.nif, // Mandatory now
+        nif: newClient.nif,
         email: newClient.email,
         contactPerson: newClient.contactPerson,
         avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(newClient.companyName)}&background=random`,
-        status: 'PENDING', // Prompt requested PENDING (or INVITED, sticking to PENDING/INVITED concept)
+        status: 'PENDING',
         pendingDocs: 0,
         accountantId: currentUser.id,
         inviteToken: token,
@@ -121,9 +111,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
       onAddClient(createdClient);
       
-      setLastInvitedEmail(newClient.email);
-      
-      // 3. Generate Link for display
       const link = getLinkFromToken(token);
       setGeneratedLink(link);
       
@@ -132,13 +119,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     }, 1500);
   };
 
-  // Resend logic reusing the existing token if valid, or generating new one could be an enhancement
   const handleResendInvite = (client: Client) => {
     if (!client.inviteToken) {
        showToast("Erro: Token inválido. Remova e convide novamente.");
        return;
     }
     const link = getLinkFromToken(client.inviteToken);
+    // Simple mailto fallback for resend, though the main flow uses the "System Email" visualization
     const subject = `Convite: Portal ${currentUser.name}`;
     const body = `Olá,\n\nVocê foi convidado para o portal de contabilidade.\n\nClique aqui para aceitar: ${link}\n\nO link expira em 48 horas.`;
     
@@ -340,145 +327,192 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-md transition-opacity" onClick={handleCloseModal}></div>
           
-          <div className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden">
+          <div className={`relative w-full ${generatedLink ? 'max-w-2xl' : 'max-w-lg'} bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden transition-all`}>
             
-            <div className="mb-6 text-center">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg transition-colors duration-500 ${
-                  generatedLink 
-                    ? 'bg-gradient-to-tr from-green-400 to-status-success shadow-status-success/30' 
-                    : 'bg-gradient-to-tr from-brand-blue to-brand-purple shadow-brand-blue/30'
-                }`}>
-                {generatedLink ? <MailCheck size={32} /> : <Mail size={32} />}
-              </div>
-              <h3 className="text-3xl font-extrabold text-neutral-dark tracking-tight">
-                {generatedLink ? 'Convite Enviado!' : 'Novo Convite'}
-              </h3>
-              <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
-                {generatedLink 
-                  ? `Um e-mail automático foi enviado para ${lastInvitedEmail}.` 
-                  : 'Preencha os dados abaixo. Um token único de 48h será gerado.'}
-              </p>
-            </div>
-
             {generatedLink ? (
-              <div className="space-y-6 animate-fade-in-up">
-                 <div className="bg-neutral-bg p-4 rounded-2xl border border-neutral-light relative">
-                    <div className="flex justify-between items-center mb-2">
-                       <p className="text-xs font-bold text-neutral-medium uppercase">Link de Cópia Manual</p>
-                       <span className="text-[10px] font-bold text-brand-blue bg-blue-50 px-2 py-0.5 rounded-lg">48 Horas</span>
+              // --- EMAIL PREVIEW TEMPLATE ---
+              <div className="animate-fade-in-up">
+                 <div className="flex justify-between items-center mb-6">
+                   <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-green-100 text-status-success flex items-center justify-center">
+                         <CheckCircle size={16} />
+                      </div>
+                      <h3 className="text-lg font-bold text-neutral-dark">Convite Enviado com Sucesso</h3>
+                   </div>
+                   <button onClick={handleCloseModal} className="text-neutral-medium hover:text-neutral-dark p-2 hover:bg-neutral-light rounded-full transition-colors">
+                     <Ban size={20} />
+                   </button>
+                 </div>
+
+                 {/* EMAIL CONTAINER (Newsletter Style) */}
+                 <div className="bg-[#F8F9FA] rounded-xl p-4 md:p-8 border border-neutral-light overflow-hidden relative">
+                    <div className="absolute top-2 right-4 text-[10px] text-neutral-400 font-mono flex items-center gap-1">
+                       <Smartphone size={10} /> Pré-visualização Mobile
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 font-mono text-neutral-dark text-xs truncate bg-white p-3 rounded-xl border border-neutral-light">
-                        {generatedLink}
-                      </div>
-                      <button 
-                        onClick={() => copyLink(generatedLink!)}
-                        className="p-3 bg-brand-blue text-white rounded-xl shadow-lg shadow-brand-blue/20 hover:bg-brand-purple transition-all active:scale-95"
-                      >
-                        <Copy size={18} />
-                      </button>
+                    {/* EMAIL CARD */}
+                    <div className="max-w-sm mx-auto bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
+                       
+                       {/* Header */}
+                       <div className="p-6 text-center border-b border-neutral-light/50">
+                          {currentUser.avatarUrl ? (
+                             <img src={currentUser.avatarUrl} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover border border-neutral-100 shadow-sm" alt="Logo" />
+                          ) : (
+                             <div className="w-16 h-16 rounded-full bg-brand-blue text-white mx-auto mb-3 flex items-center justify-center text-xl font-bold">
+                                {currentUser.name.charAt(0)}
+                             </div>
+                          )}
+                          <h2 className="text-neutral-dark font-bold text-lg">{currentUser.name}</h2>
+                          <p className="text-xs text-neutral-medium uppercase tracking-wide mt-1">Portal de Contabilidade</p>
+                       </div>
+
+                       {/* Body */}
+                       <div className="p-6 text-center">
+                          <p className="text-neutral-dark text-sm leading-relaxed mb-6">
+                             Olá <strong>{newClient.contactPerson}</strong>,<br/><br/>
+                             Foi convidado por <span className="text-brand-blue font-semibold">{currentUser.name}</span> para aceder ao seu portal de contabilidade exclusivo.
+                          </p>
+
+                          <button 
+                             className="block w-full py-3 bg-[#007BFF] text-white rounded-xl font-bold text-sm shadow-md hover:bg-blue-600 transition-colors mb-6"
+                             onClick={() => copyLink(generatedLink)}
+                          >
+                             Aceitar Convite
+                          </button>
+
+                          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 flex items-center gap-2 justify-center mb-6">
+                             <Clock size={14} className="text-yellow-600" />
+                             <span className="text-xs text-yellow-800 font-medium">Este convite expira em 48 horas</span>
+                          </div>
+
+                          <div className="text-left">
+                             <p className="text-[10px] text-neutral-medium mb-1">Se o botão não funcionar, copie este link:</p>
+                             <div className="bg-neutral-50 border border-neutral-light rounded p-2 flex items-center gap-2">
+                                <code className="text-[10px] text-neutral-500 truncate flex-1 block font-mono">
+                                   {generatedLink}
+                                </code>
+                                <button onClick={() => copyLink(generatedLink)} className="text-brand-blue hover:text-brand-purple">
+                                   <Copy size={12} />
+                                </button>
+                             </div>
+                          </div>
+                       </div>
+
+                       {/* Footer */}
+                       <div className="bg-neutral-50 p-4 text-center border-t border-neutral-light/50">
+                          <div className="flex items-center justify-center gap-1 text-neutral-400 text-[10px]">
+                             <ShieldCheck size={10} />
+                             <span>Este é um convite seguro e pessoal enviado via ContaPortal.</span>
+                          </div>
+                       </div>
                     </div>
-                    <p className="text-[10px] text-neutral-medium mt-2">
-                      Utilize este link se o cliente não receber o e-mail.
-                    </p>
                  </div>
                  
-                 <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex gap-3">
-                   <div className="text-status-success mt-0.5"><CheckCircle size={18} /></div>
-                   <p className="text-xs text-green-800 font-medium leading-relaxed">
-                     Token seguro gerado. O estado do cliente mudará para 'Ativo' após aceitação.
-                   </p>
+                 <div className="mt-6 flex justify-end">
+                    <button 
+                       onClick={handleCloseModal}
+                       className="px-6 py-3 rounded-2xl bg-neutral-dark text-white font-bold text-sm hover:bg-black transition-colors"
+                    >
+                       Fechar Pré-visualização
+                    </button>
                  </div>
-
-                 <button 
-                    onClick={handleCloseModal}
-                    className="w-full py-4 rounded-2xl font-bold text-white btn-liquid shadow-lg"
-                  >
-                    Concluir e Fechar
-                  </button>
               </div>
             ) : (
-              <form onSubmit={handleInvite} className="space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Nome da Empresa <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    name="companyName"
-                    required
-                    value={newClient.companyName}
-                    onChange={handleInputChange}
-                    className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
-                    placeholder="Ex: Tech Solutions Lda"
-                  />
+              // --- FORM ---
+              <>
+                <div className="mb-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-brand-blue/30 flex items-center justify-center text-white mx-auto mb-4">
+                     <Mail size={32} />
+                  </div>
+                  <h3 className="text-3xl font-extrabold text-neutral-dark tracking-tight">
+                    Novo Convite
+                  </h3>
+                  <p className="text-neutral-medium mt-2 max-w-xs mx-auto leading-relaxed">
+                    Preencha os dados abaixo. Um token único de 48h será gerado.
+                  </p>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Pessoa de Contacto <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    name="contactPerson"
-                    required
-                    value={newClient.contactPerson}
-                    onChange={handleInputChange}
-                    className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
-                    placeholder="Ex: João Silva"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                
+                <form onSubmit={handleInvite} className="space-y-5">
                   <div>
-                    <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Nome da Empresa <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
-                      name="nif"
+                      name="companyName"
                       required
-                      pattern="[0-9]{9}"
-                      title="NIF deve ter 9 dígitos"
-                      value={newClient.nif}
+                      value={newClient.companyName}
                       onChange={handleInputChange}
                       className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
-                      placeholder="999999999"
+                      placeholder="Ex: Tech Solutions Lda"
                     />
                   </div>
-                  <div>
-                     <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Email <span className="text-red-500">*</span></label>
-                    <input 
-                      type="email" 
-                      name="email"
-                      required
-                      value={newClient.email}
-                      onChange={handleInputChange}
-                      className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
-                      placeholder="mail@exemplo.com"
-                    />
-                  </div>
-                </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={handleCloseModal}
-                    className="flex-1 py-4 rounded-2xl font-bold text-neutral-medium hover:bg-neutral-light transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className="flex-1 py-4 rounded-2xl font-bold text-white btn-liquid flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20"
-                  >
-                    {isLoading ? (
-                      <Loader2 size={20} className="animate-spin" />
-                    ) : (
-                      <>
-                        <span>Enviar Convite</span>
-                        <Send size={18} />
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Pessoa de Contacto <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      name="contactPerson"
+                      required
+                      value={newClient.contactPerson}
+                      onChange={handleInputChange}
+                      className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
+                      placeholder="Ex: João Silva"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">NIF <span className="text-red-500">*</span></label>
+                      <input 
+                        type="text" 
+                        name="nif"
+                        required
+                        pattern="[0-9]{9}"
+                        title="NIF deve ter 9 dígitos"
+                        value={newClient.nif}
+                        onChange={handleInputChange}
+                        className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
+                        placeholder="999999999"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-dark mb-1.5 ml-1">Email <span className="text-red-500">*</span></label>
+                      <input 
+                        type="email" 
+                        name="email"
+                        required
+                        value={newClient.email}
+                        onChange={handleInputChange}
+                        className="w-full px-5 py-4 rounded-2xl bg-white border border-neutral-light focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 text-neutral-dark font-medium transition-all"
+                        placeholder="mail@exemplo.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={handleCloseModal}
+                      className="flex-1 py-4 rounded-2xl font-bold text-neutral-medium hover:bg-neutral-light transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={isLoading}
+                      className="flex-1 py-4 rounded-2xl font-bold text-white btn-liquid flex items-center justify-center gap-2 shadow-lg shadow-brand-blue/20"
+                    >
+                      {isLoading ? (
+                        <Loader2 size={20} className="animate-spin" />
+                      ) : (
+                        <>
+                          <span>Enviar Convite</span>
+                          <Send size={18} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </>
             )}
           </div>
         </div>
