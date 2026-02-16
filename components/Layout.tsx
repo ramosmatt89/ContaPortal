@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { 
   LayoutDashboard, 
@@ -10,7 +10,9 @@ import {
   Search, 
   LogOut,
   Plus,
-  Menu
+  Menu,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -19,6 +21,7 @@ interface LayoutProps {
   currentView: string;
   onNavigate: (view: string) => void;
   onLogout: () => void;
+  onCancelAccount: () => void;
   branding?: { name: string; logo?: string };
 }
 
@@ -28,9 +31,12 @@ const Layout: React.FC<LayoutProps> = ({
   currentView, 
   onNavigate, 
   onLogout,
+  onCancelAccount,
   branding = { name: 'ContaPortal', logo: '' } 
 }) => {
   const isClient = user.role === UserRole.CLIENT;
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   const menuItems = isClient 
     ? [
@@ -46,6 +52,13 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'obligations', icon: CheckCircle, label: 'Obrigações' },
         { id: 'settings', icon: Settings, label: 'Config' },
       ];
+
+  const handleConfirmCancel = () => {
+    if (confirmText === 'CANCELAR') {
+      setIsCancelModalOpen(false);
+      onCancelAccount();
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row font-sans text-neutral-dark selection:bg-brand-blue selection:text-white">
@@ -86,13 +99,21 @@ const Layout: React.FC<LayoutProps> = ({
           ))}
         </nav>
 
-        <div className="p-4 mx-4 mb-4 border-t border-neutral-light/50">
+        <div className="p-4 mx-4 mb-4 border-t border-neutral-light/50 space-y-2">
           <button 
             onClick={onLogout}
-            className="w-full flex items-center gap-4 px-5 py-3 text-neutral-medium hover:text-status-error hover:bg-red-50/50 rounded-2xl transition-all duration-300"
+            className="w-full flex items-center gap-4 px-5 py-3 text-neutral-medium hover:text-neutral-dark hover:bg-neutral-light/50 rounded-2xl transition-all duration-300"
           >
             <LogOut size={20} />
             <span className="font-medium">Sair</span>
+          </button>
+          
+          <button 
+            onClick={() => { setIsCancelModalOpen(true); setConfirmText(''); }}
+            className="w-full flex items-center gap-4 px-5 py-3 text-status-error hover:bg-red-50 rounded-2xl transition-all duration-300 opacity-70 hover:opacity-100"
+          >
+            <AlertTriangle size={20} />
+            <span className="font-medium">Cancelar conta</span>
           </button>
         </div>
       </aside>
@@ -137,7 +158,7 @@ const Layout: React.FC<LayoutProps> = ({
                   <p className="text-sm font-bold text-neutral-dark">{user.name}</p>
                   <p className="text-xs font-medium text-neutral-medium">{isClient ? user.email : 'Contabilista'}</p>
                 </div>
-                <div className="relative group cursor-pointer" onClick={() => onNavigate('settings')}>
+                <div className="relative group cursor-pointer" onClick={() => onNavigate(isClient ? 'profile' : 'settings')}>
                   <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue to-brand-purple rounded-2xl blur opacity-40 group-hover:opacity-70 transition-opacity"></div>
                   <img 
                     src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} 
@@ -148,7 +169,7 @@ const Layout: React.FC<LayoutProps> = ({
              </div>
 
              {/* Mobile Profile Icon */}
-             <div className="lg:hidden" onClick={() => onNavigate('settings')}>
+             <div className="lg:hidden" onClick={() => onNavigate(isClient ? 'profile' : 'settings')}>
                <img 
                  src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`}
                  className="w-10 h-10 rounded-2xl border-2 border-white/50 shadow-sm object-cover bg-white" 
@@ -198,6 +219,51 @@ const Layout: React.FC<LayoutProps> = ({
         <button className="fixed bottom-32 right-6 lg:hidden w-16 h-16 btn-liquid rounded-full flex items-center justify-center z-40 active:scale-90 transition-transform text-white">
           <Plus size={32} />
         </button>
+      )}
+
+      {/* Cancellation Modal */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-neutral-dark/80 backdrop-blur-sm" onClick={() => setIsCancelModalOpen(false)}></div>
+          <div className="relative w-full max-w-md bg-white rounded-[2rem] p-8 shadow-2xl animate-fade-in-up">
+            <div className="w-16 h-16 bg-red-50 text-status-error rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-2xl font-extrabold text-neutral-dark text-center mb-2">Cancelar Conta?</h3>
+            <p className="text-neutral-medium text-center mb-6">
+              Tem a certeza de que deseja cancelar a conta? Esta ação não pode ser desfeita. Os seus dados serão mantidos por 30 dias.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-neutral-dark mb-2 text-center uppercase">
+                Digite "CANCELAR" para confirmar
+              </label>
+              <input 
+                type="text" 
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                className="w-full px-4 py-3 text-center border-2 border-red-100 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 rounded-xl outline-none font-bold text-status-error placeholder:text-red-200"
+                placeholder="CANCELAR"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setIsCancelModalOpen(false)}
+                className="flex-1 py-3.5 rounded-xl bg-neutral-light text-neutral-medium font-bold hover:bg-neutral-200 transition-colors"
+              >
+                Voltar
+              </button>
+              <button 
+                onClick={handleConfirmCancel}
+                disabled={confirmText !== 'CANCELAR'}
+                className="flex-1 py-3.5 rounded-xl bg-status-error text-white font-bold hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/20"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

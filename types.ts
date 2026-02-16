@@ -10,6 +10,9 @@ export interface User {
   email: string;
   role: UserRole;
   avatarUrl?: string;
+  // Account Status
+  status?: 'ACTIVE' | 'INACTIVE';
+  deletionScheduledAt?: string; // ISO string
 }
 
 export enum DocStatus {

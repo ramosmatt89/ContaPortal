@@ -130,6 +130,34 @@ const App: React.FC = () => {
       const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (user) {
+        // Check for Deletion Schedule
+        if (user.status === 'INACTIVE') {
+           if (user.deletionScheduledAt) {
+             const deletionDate = new Date(user.deletionScheduledAt);
+             const now = new Date();
+             if (now > deletionDate) {
+               setAuthError('Esta conta foi eliminada permanentemente.');
+               setAuthLoading(false);
+               return;
+             }
+             // Allow Reactivation
+             if (window.confirm('A sua conta está desativada e agendada para eliminação. Deseja reativá-la agora?')) {
+               const reactivatedUser = { ...user, status: 'ACTIVE' as const, deletionScheduledAt: undefined };
+               setUsersDB(prev => prev.map(u => u.id === user.id ? reactivatedUser : u));
+               setCurrentUser(reactivatedUser);
+               if (rememberMe) localStorage.setItem('cp_currentUser', JSON.stringify(reactivatedUser));
+               setCurrentView('dashboard');
+               alert('Bem-vindo de volta! A sua conta foi reativada.');
+               setAuthLoading(false);
+               return;
+             } else {
+               setAuthError('Conta desativada.');
+               setAuthLoading(false);
+               return;
+             }
+           }
+        }
+
         if (pass.length >= 4) { 
           setCurrentUser(user);
           if (rememberMe) localStorage.setItem('cp_currentUser', JSON.stringify(user));
@@ -162,7 +190,8 @@ const App: React.FC = () => {
         name,
         email,
         role,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+        status: 'ACTIVE'
       };
 
       setUsersDB(prev => [...prev, newUser]);
@@ -170,9 +199,8 @@ const App: React.FC = () => {
         setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
       }
 
-      // Sync Invitation Logic: If this user was invited via Token or Email
+      // Sync Invitation Logic
       if (pendingInviteClient) {
-         // Determine Accountant ID from dataDB
          const accountantId = Object.keys(dataDB).find(accId => 
              dataDB[accId].some(c => c.id === pendingInviteClient.id)
          );
@@ -182,9 +210,9 @@ const App: React.FC = () => {
                 c.id === pendingInviteClient.id 
                   ? { 
                       ...c, 
-                      status: 'ACTIVE' as const, // Fix type issue
-                      inviteToken: undefined, // Consume token
-                      companyName: newUser.name, // Update name if user changed it
+                      status: 'ACTIVE' as const,
+                      inviteToken: undefined,
+                      companyName: newUser.name,
                       avatarUrl: newUser.avatarUrl || c.avatarUrl
                     } 
                   : c
@@ -192,10 +220,9 @@ const App: React.FC = () => {
              setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
          }
          
-         // Clear pending state
          setPendingInviteClient(null);
       } else {
-         // Fallback legacy logic for email matching without token
+         // Legacy invite matching
          let wasInvited = false;
          const updatedDataDB = { ...dataDB };
          
@@ -205,7 +232,6 @@ const App: React.FC = () => {
            
            if (clientIndex > -1) {
              wasInvited = true;
-             // Sync profile data to the accountant's view
              updatedDataDB[accountantId][clientIndex] = {
                 ...updatedDataDB[accountantId][clientIndex],
                 status: 'ACTIVE',
@@ -234,11 +260,31 @@ const App: React.FC = () => {
     setCurrentView('dashboard');
   };
 
+  const handleCancelAccount = () => {
+    if (!currentUser) return;
+    
+    // Schedule deletion for 30 days from now
+    const deletionDate = new Date();
+    deletionDate.setDate(deletionDate.getDate() + 30);
+    
+    const updatedUser: User = {
+       ...currentUser,
+       status: 'INACTIVE',
+       deletionScheduledAt: deletionDate.toISOString()
+    };
+
+    setUsersDB(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+    
+    // Also logout immediately
+    handleLogout();
+    
+    alert(`A sua conta foi cancelada. Os seus dados serão mantidos por 30 dias (${deletionDate.toLocaleDateString()}), após o qual serão permanentemente eliminados. Pode reativar a conta fazendo login durante este período.`);
+  };
+
   // --- DATA LOGIC ---
 
   const handleAddClient = (newClient: Client) => {
     if (!currentUser) return;
-    // Ensure we use the current user's ID as the accountant ID
     const clientWithAccountant = { ...newClient, accountantId: currentUser.id };
     const updatedClients = [clientWithAccountant, ...clients];
     setClients(updatedClients);
@@ -268,7 +314,6 @@ const App: React.FC = () => {
         localStorage.setItem('cp_currentUser', JSON.stringify(updatedUser));
       }
 
-      // If Client, update Accountant's view
       if (currentUser.role === UserRole.CLIENT) {
         const updatedDataDB = { ...dataDB };
         let found = false;
@@ -289,7 +334,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Upload Logic (Used by Client)
   const handleUploadDocument = (file: File, type: DocType = DocType.INVOICE) => {
     if (!currentUser) return;
 
@@ -299,13 +343,12 @@ const App: React.FC = () => {
       type: type,
       date: new Date().toISOString(),
       status: DocStatus.PENDING,
-      clientId: currentUser.id, // Links doc to the specific user ID
+      clientId: currentUser.id,
       fileUrl: URL.createObjectURL(file)
     };
 
     setDocsDB(prev => [newDoc, ...prev]);
     
-    // Increment 'pendingDocs' count in the Accountant's client list
     const allClients = Object.values(dataDB).flat() as Client[];
     const clientRecord = allClients.find(c => c.email === currentUser.email);
     
@@ -322,7 +365,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Validation Logic (Used by Accountant)
   const handleValidateDocument = (docId: string, newStatus: DocStatus) => {
     const docToUpdate = docsDB.find(d => d.id === docId);
     if (!docToUpdate) return;
@@ -347,7 +389,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Create Tax Obligation (Used by Accountant)
   const handleAddObligation = (obligation: Omit<TaxObligation, 'id'>) => {
     const newObligation: TaxObligation = {
       ...obligation,
@@ -356,30 +397,24 @@ const App: React.FC = () => {
     setObligationsDB(prev => [newObligation, ...prev]);
   };
 
-  // Pay/Approve Obligation (Used by Client)
   const handleApproveObligation = (id: string) => {
     setObligationsDB(prev => prev.map(o => o.id === id ? { ...o, status: 'PAID' } : o));
   };
 
-  // --- BRANDING ---
   const getBranding = () => {
     const defaultBranding = { name: 'ContaPortal', logo: '' };
     if (!currentUser) return defaultBranding;
 
     if (currentUser.role === UserRole.ACCOUNTANT) {
-      // Accountant sees their own brand set in Settings
       return { 
         name: currentUser.name, 
         logo: currentUser.avatarUrl || '' 
       };
     } else if (currentUser.role === UserRole.CLIENT) {
-      // Client sees their Accountant's brand
-      // Find the accountant who owns this client based on dataDB relationship
       const allClients = Object.values(dataDB).flat() as Client[];
       const clientRecord = allClients.find(c => c.email === currentUser.email);
       
       if (clientRecord) {
-         // Find which accountant list contains this client
          const accountantId = Object.keys(dataDB).find(accId => 
            dataDB[accId].some(c => c.id === clientRecord.id || c.email === clientRecord.email)
          );
@@ -406,7 +441,6 @@ const App: React.FC = () => {
         isLoading={authLoading}
         error={authError}
         setError={setAuthError}
-        // Pass Invitation Props
         validatedInvite={pendingInviteClient}
         inviteError={inviteError}
       />
@@ -432,7 +466,7 @@ const App: React.FC = () => {
               case 'authorizations':
                  return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="authorizations" obligations={userObligations} onApproveObligation={handleApproveObligation} />;
               case 'profile':
-                return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
+                return <Settings user={currentUser} onUpdateUser={handleUpdateUser} onLogout={handleLogout} onCancelAccount={handleCancelAccount} />;
               default:
                 return <DashboardClient user={currentUser} documents={userDocuments} onUpload={handleUploadDocument} accountantName={accountantName} viewMode="dashboard" />;
             }
@@ -454,7 +488,7 @@ const App: React.FC = () => {
               case 'clients':
                 return <ClientsManagement currentUser={currentUser} clients={clients} onAddClient={handleAddClient} onUpdateClient={handleUpdateClient} onDeleteClient={handleDeleteClient} />;
               case 'settings':
-                  return <Settings user={currentUser} onUpdateUser={handleUpdateUser} />;
+                  return <Settings user={currentUser} onUpdateUser={handleUpdateUser} onLogout={handleLogout} onCancelAccount={handleCancelAccount} />;
               case 'obligations':
                   return <DashboardAccountant onNavigate={setCurrentView} clients={clients} user={currentUser} documents={relevantDocs} viewMode="obligations" onAddObligation={handleAddObligation} obligations={obligationsDB.filter(o => myClientIds.includes(o.clientId) || clients.some(c => c.email === o.clientId))} />;
               default:
@@ -467,7 +501,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout user={currentUser} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} branding={branding}>
+    <Layout user={currentUser} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} onCancelAccount={handleCancelAccount} branding={branding}>
       {renderContent()}
     </Layout>
   );
