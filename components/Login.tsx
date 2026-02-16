@@ -27,9 +27,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, isLoading = false, e
   // Check for Invite Params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const invitedBy = params.get('invitedBy');
-    const logo = params.get('logo');
-    const invitedEmail = params.get('email');
+    
+    // Support new short params (by, l, e) and old params (invitedBy, logo, email)
+    const invitedBy = params.get('by') || params.get('invitedBy');
+    const logo = params.get('l') || params.get('logo');
+    const invitedEmail = params.get('e') || params.get('email');
 
     if (invitedBy) {
       setInviterName(invitedBy);

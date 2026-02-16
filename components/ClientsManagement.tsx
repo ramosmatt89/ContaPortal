@@ -67,13 +67,19 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   const generateInviteLink = (email: string) => {
-    // Dynamic Branding: Use current accountant's name and logo
+    // Dynamic Branding: Use current accountant's name
     const inviterName = currentUser.name; 
-    const inviterLogoParam = currentUser.avatarUrl ? `&logo=${encodeURIComponent(currentUser.avatarUrl)}` : '';
     
-    // Using current origin to make link work in dev/preview environment
+    // OPTIMIZATION: Only include logo if it is a SHORT URL (http). 
+    // Do NOT include Base64 (data:image) strings as they break 'mailto' links and make URLs huge.
+    const isBase64 = currentUser.avatarUrl?.startsWith('data:');
+    const inviterLogoParam = (currentUser.avatarUrl && !isBase64) 
+      ? `&l=${encodeURIComponent(currentUser.avatarUrl)}` 
+      : '';
+    
     const baseUrl = window.location.origin;
-    return `${baseUrl}?invitedBy=${encodeURIComponent(inviterName)}${inviterLogoParam}&email=${encodeURIComponent(email)}`;
+    // New Short Format: ?by=Name&e=Email
+    return `${baseUrl}?by=${encodeURIComponent(inviterName)}${inviterLogoParam}&e=${encodeURIComponent(email)}`;
   };
 
   const handleInvite = (e: React.FormEvent) => {
@@ -111,13 +117,14 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
   const handleResendInvite = (client: Client) => {
     const link = generateInviteLink(client.email);
-    const subject = `Convite para o portal de ${currentUser.name}`;
-    const body = `Olá,\n\nAqui está o seu link de acesso para o portal de contabilidade de ${currentUser.name}:\n\n${link}\n\nObrigado.`;
+    const subject = `Convite: Portal ${currentUser.name}`;
+    const body = `Olá,\n\nFoi convidado para o portal de contabilidade de ${currentUser.name}.\n\nAceda através deste link:\n${link}\n\nObrigado.`;
     
     // Trigger the user's default email client
+    // encoding logic ensures special characters don't break the mailto link
     window.location.href = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     
-    showToast(`✉️ Cliente de e-mail aberto para ${client.email}`);
+    showToast(`✉️ App de e-mail aberta para ${client.email}`);
   };
 
   const handleCloseModal = () => {
