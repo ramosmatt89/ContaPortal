@@ -12,7 +12,11 @@ const data = [
   { name: 'Jun', docs: 239, validated: 380 },
 ];
 
-const DashboardAccountant: React.FC = () => {
+interface DashboardAccountantProps {
+  onNavigate: (view: string) => void;
+}
+
+const DashboardAccountant: React.FC<DashboardAccountantProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-8 animate-fade-in-up pb-8">
       
@@ -111,12 +115,15 @@ const DashboardAccountant: React.FC = () => {
         <div className="glass-panel p-6 rounded-[2rem]">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-bold text-lg text-neutral-dark">Estado Clientes</h3>
-            <button className="p-2 bg-white/50 rounded-xl hover:bg-white transition-colors text-brand-blue">
+            <button 
+              onClick={() => onNavigate('clients')}
+              className="p-2 bg-white/50 rounded-xl hover:bg-white transition-colors text-brand-blue"
+            >
               <Search size={18} />
             </button>
           </div>
           <div className="space-y-3">
-            {MOCK_CLIENTS.map(client => (
+            {MOCK_CLIENTS.slice(0, 4).map(client => (
               <div key={client.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/60 transition-colors cursor-pointer group border border-transparent hover:border-white/50">
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -145,8 +152,11 @@ const DashboardAccountant: React.FC = () => {
               </div>
             ))}
           </div>
-          <button className="w-full mt-6 btn-liquid text-white font-semibold py-3.5 rounded-xl text-sm">
-            Ver Diretório Completo
+          <button 
+            onClick={() => onNavigate('clients')}
+            className="w-full mt-6 btn-liquid text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center"
+          >
+            Gestão de Clientes
           </button>
         </div>
 

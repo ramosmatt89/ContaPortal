@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserRole } from '../types';
-import { Briefcase, User, ArrowRight } from 'lucide-react';
+import { Briefcase, User, ArrowRight, Lock } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (role: UserRole) => void;
@@ -69,6 +69,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <p className="hidden md:block text-neutral-medium text-lg mb-8 leading-relaxed">
                 Envie documentos, consulte obrigações fiscais e aprove pagamentos em segundos.
               </p>
+              
+              {/* Disclaimer */}
+              <div className="flex items-center gap-2 mb-4 md:mb-0 bg-blue-50/50 px-3 py-1.5 rounded-lg border border-blue-100/50">
+                 <Lock size={12} className="text-neutral-medium" />
+                 <span className="text-xs text-neutral-medium font-medium">Acesso restrito por convite</span>
+              </div>
+
               <div className="hidden md:flex mt-auto items-center gap-3 text-base font-bold text-brand-blue opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all duration-300">
                 Entrar no Portal <ArrowRight size={20} />
               </div>

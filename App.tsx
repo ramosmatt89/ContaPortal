@@ -58,13 +58,17 @@ const App: React.FC = () => {
           (() => {
             switch (currentView) {
               case 'dashboard':
-                return <DashboardAccountant />;
+                return <DashboardAccountant onNavigate={setCurrentView} />;
               case 'clients':
                 return <ClientsManagement />;
               case 'documents':
                 return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Validação em Lote em construção 🚧</div>;
+              case 'obligations':
+                  return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Gestão de Obrigações em construção 🚧</div>;
+              case 'settings':
+                  return <div className="p-10 text-center text-slate-500 glass-panel rounded-2xl">Configurações do Escritório em construção 🚧</div>;
               default:
-                return <DashboardAccountant />;
+                return <DashboardAccountant onNavigate={setCurrentView} />;
             }
           })()
         )}
