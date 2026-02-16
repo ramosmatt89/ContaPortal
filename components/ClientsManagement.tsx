@@ -229,7 +229,8 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       case 'OVERDUE':
         return <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><ShieldAlert size={12}/> Atrasado</span>;
       case 'ACTIVE':
-        return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Convite Aceite</span>;
+        // UPDATED: "Convite Aceite" -> "Convite Aceito"
+        return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Convite Aceito</span>;
       default:
         return null;
     }
@@ -323,8 +324,12 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                  </div>
 
                  <div className="flex items-center justify-between pt-2 border-t border-white/50">
-                   <span className={`text-xs font-bold ${isExpired ? 'text-status-error' : 'text-neutral-medium'}`}>
-                     {client.status === 'ACTIVE' ? 'Acesso Ativo' : isExpired ? 'Token Expirado' : 'Aguardando Registo'}
+                   {/* UPDATED: Footer Text to Green 'Convite Aceito' */}
+                   <span className={`text-xs font-bold ${
+                     client.status === 'ACTIVE' ? 'text-status-success' : 
+                     isExpired ? 'text-status-error' : 'text-neutral-medium'
+                   }`}>
+                     {client.status === 'ACTIVE' ? 'Convite Aceito' : isExpired ? 'Token Expirado' : 'Aguardando Registo'}
                    </span>
                    
                    <div className="flex items-center gap-2">
