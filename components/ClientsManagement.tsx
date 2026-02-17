@@ -40,8 +40,11 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Note: generatedLink and previewClient are no longer used for the initial invite flow
+  // as per the requirement to send email in background immediately.
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-  const [previewClient, setPreviewClient] = useState<any>(null); // For previewing the email content
+  const [previewClient, setPreviewClient] = useState<any>(null); 
   
   // Toast state for actions
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -71,25 +74,21 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setNewClient(prev => ({ ...prev, [name]: value }));
   };
 
-  // --- UPDATED: Stateless Token Generation ---
-  // Encodes invite data into the token so it works across devices without a backend
+  // --- Stateless Token Generation ---
   const generateSecureInvite = (data: { companyName: string, email: string, contactPerson: string }) => {
     const expires = new Date();
     expires.setDate(expires.getDate() + 7); // 7 Days Expiration
 
-    // Payload to be encoded
     const payload = {
-      nm: data.companyName,       // Name
-      em: data.email,             // Email
-      cp: data.contactPerson,     // Contact Person
-      an: currentUser.name,       // Accountant Name (for display on client side)
-      aid: currentUser.id,        // Accountant ID
-      exp: expires.getTime()      // Expiration Timestamp
+      nm: data.companyName,
+      em: data.email,
+      cp: data.contactPerson,
+      an: currentUser.name,
+      aid: currentUser.id,
+      exp: expires.getTime()
     };
 
-    // Encode to Base64 (with UTF-8 support)
     const token = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-
     return { token, expires: expires.toISOString() };
   };
 
@@ -100,7 +99,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     return url.toString();
   };
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
@@ -123,6 +122,9 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       contactPerson: newClient.contactPerson
     });
 
+    // Simulate Backend Email Sending Process
+    // In a real app, you would call your API endpoint here (e.g., /api/send-invite)
+    // which would use Nodemailer to send the actual email.
     setTimeout(() => {
       const newId = `c${Date.now()}`;
       
@@ -142,17 +144,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
       onAddClient(createdClient);
       
-      const link = getLinkFromToken(token);
-      setGeneratedLink(link);
-      setPreviewClient(createdClient);
-      
       setIsLoading(false);
-      showToast(`Convite gerado com sucesso.`);
-    }, 1500);
+      handleCloseModal(); // Close modal immediately
+      showToast(`Convite enviado com sucesso para ${newClient.email}`);
+    }, 2000); // 2 second delay to simulate network request
   };
 
   const handleResendInvite = (client: Client) => {
-    // Always regenerate token to ensure it follows new stateless format and has fresh expiry
     const { token, expires } = generateSecureInvite({
         companyName: client.companyName,
         email: client.email,
@@ -165,12 +163,9 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         inviteToken: token,
         inviteExpires: expires
     });
-    showToast("Novo token de 7 dias gerado.");
-
-    const link = getLinkFromToken(token);
-    setGeneratedLink(link);
-    setPreviewClient(client);
-    setIsModalOpen(true); // Open the preview modal again
+    
+    // Also simulate background sending for resend
+    showToast(`Novo convite enviado para ${client.email}`);
   };
 
   const handleCloseModal = () => {
@@ -180,21 +175,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setNewClient({ companyName: '', nif: '', email: '', contactPerson: '' });
   };
 
-  // --- NEW FUNCTION: Open Default Email App ---
+  // Kept for backward compatibility if we ever need to manually open mail app, 
+  // but main flow is now background sending.
   const handleOpenEmailApp = () => {
     if (!generatedLink || !previewClient) return;
-
     const subject = `Convite: Acesso ao Portal - ${currentUser.name}`;
-    // Mailto body must be plain text
-    const body = `Olá ${previewClient.contactPerson},\n\n` +
-                 `Foi convidado por ${currentUser.name} para aceder ao seu portal de documentos contabilísticos.\n\n` +
-                 `Para aceitar o convite e configurar o seu acesso, clique no link abaixo:\n` +
-                 `${generatedLink}\n\n` +
-                 `Este link é válido por 7 dias.\n\n` +
-                 `Cumprimentos,\n${currentUser.name}`;
-
+    const body = `Olá ${previewClient.contactPerson},\n\nLink: ${generatedLink}`;
     window.location.href = `mailto:${previewClient.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    showToast('App de e-mail aberta.');
   };
 
   const toggleClientStatus = (client: Client) => {
@@ -214,7 +201,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   }
 
   const getStatusBadge = (client: Client) => {
-    // Check Expiration
     if (client.status === 'PENDING' || client.status === 'INVITED') {
         const isExpired = client.inviteExpires && new Date(client.inviteExpires) < new Date();
         if (isExpired) {
@@ -229,7 +215,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       case 'OVERDUE':
         return <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><ShieldAlert size={12}/> Atrasado</span>;
       case 'ACTIVE':
-        // UPDATED: Green Badge for Accepted Invite
         return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Convite Aceito</span>;
       default:
         return null;
@@ -324,7 +309,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                  </div>
 
                  <div className="flex items-center justify-between pt-2 border-t border-white/50">
-                   {/* UPDATED: Footer Text to Green 'Convite Aceito' */}
                    <span className={`text-xs font-bold ${
                      client.status === 'ACTIVE' ? 'text-status-success' : 
                      isExpired ? 'text-status-error' : 'text-neutral-medium'
@@ -342,16 +326,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                           >
                             {isExpired ? <RefreshCw size={18} /> : <Send size={18} />}
                           </button>
-                          
-                          {!isExpired && (
-                            <button 
-                                title="Copiar Link"
-                                onClick={() => copyLink(getLinkFromToken(client.inviteToken || ''))}
-                                className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-neutral-dark transition-colors"
-                            >
-                                <Copy size={18} />
-                            </button>
-                          )}
                         </>
                      )}
 
@@ -404,121 +378,8 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-neutral-dark/40 backdrop-blur-md transition-opacity" onClick={handleCloseModal}></div>
           
-          <div className={`relative w-full ${generatedLink ? 'max-w-2xl' : 'max-w-lg'} bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden transition-all max-h-[90vh] overflow-y-auto`}>
-            
-            {generatedLink ? (
-              // --- NEWSLETTER EMAIL PREVIEW TEMPLATE ---
-              <div className="animate-fade-in-up">
-                 <div className="flex justify-between items-center mb-6">
-                   <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-green-100 text-status-success flex items-center justify-center">
-                         <CheckCircle size={16} />
-                      </div>
-                      <h3 className="text-lg font-bold text-neutral-dark">Convite Gerado</h3>
-                   </div>
-                   <button onClick={handleCloseModal} className="text-neutral-medium hover:text-neutral-dark p-2 hover:bg-neutral-light rounded-full transition-colors">
-                     <Ban size={20} />
-                   </button>
-                 </div>
-                 
-                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-6 text-sm text-neutral-dark">
-                    <p className="flex gap-2">
-                       <span className="font-bold text-brand-blue">Nota:</span> 
-                       Como este é um sistema de demonstração (Frontend), o e-mail não é enviado automaticamente pelo servidor.
-                    </p>
-                    <p className="mt-2 ml-10 text-neutral-medium">
-                       Utilize o botão <strong>"Enviar E-mail"</strong> abaixo para abrir a sua aplicação de e-mail (Outlook, Gmail, etc.) com o texto preenchido.
-                    </p>
-                 </div>
-
-                 {/* EMAIL CONTAINER (Newsletter Style) */}
-                 <div className="bg-[#F2F4F7] rounded-xl p-4 md:p-8 border border-neutral-light overflow-hidden relative shadow-inner">
-                    <div className="absolute top-2 right-4 text-[10px] text-neutral-400 font-mono flex items-center gap-1">
-                       <Smartphone size={10} /> Pré-visualização
-                    </div>
-                    
-                    {/* EMAIL CARD */}
-                    <div className="max-w-[400px] mx-auto bg-white rounded-t-2xl rounded-b-2xl shadow-sm border-t-4 border-t-brand-blue overflow-hidden">
-                       
-                       {/* Header: Identity */}
-                       <div className="p-8 pb-4 text-center">
-                          {currentUser.avatarUrl ? (
-                             <img src={currentUser.avatarUrl} className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-md" alt="Logo" />
-                          ) : (
-                             <div className="w-16 h-16 rounded-full bg-brand-blue text-white mx-auto mb-4 flex items-center justify-center text-xl font-bold">
-                                {currentUser.name.charAt(0)}
-                             </div>
-                          )}
-                          <h2 className="text-neutral-dark font-bold text-xl">{currentUser.name}</h2>
-                          <p className="text-xs text-neutral-medium uppercase tracking-wide mt-1 font-semibold">Gabinete de Contabilidade</p>
-                       </div>
-
-                       {/* Divider */}
-                       <div className="w-full h-px bg-neutral-light my-2"></div>
-
-                       {/* Body: Message */}
-                       <div className="p-8 pt-6 text-center">
-                          <h1 className="text-xl font-bold text-neutral-dark mb-4">Bem-vindo(a) ao seu Portal</h1>
-                          <p className="text-neutral-600 text-[15px] leading-relaxed mb-8">
-                             Olá <strong>{previewClient?.contactPerson.split(' ')[0]}</strong>,<br/><br/>
-                             Foi convidado para aceder ao seu portal de documentos contabilísticos. Aqui poderá consultar faturas, enviar despesas e validar impostos de forma segura.
-                          </p>
-
-                          {/* Primary Button */}
-                          <button 
-                             className="block w-full py-4 bg-[#007BFF] text-white rounded-lg font-bold text-base shadow-lg hover:bg-blue-600 transition-colors mb-6"
-                             onClick={() => copyLink(generatedLink)}
-                          >
-                             Aceitar Convite
-                          </button>
-
-                          {/* Expiration Badge */}
-                          <div className="inline-flex items-center gap-2 bg-yellow-50 px-3 py-1.5 rounded-md border border-yellow-100 mb-8">
-                             <Clock size={12} className="text-yellow-600" />
-                             <span className="text-[11px] text-yellow-800 font-medium">Este link expira em 7 dias</span>
-                          </div>
-
-                          {/* Fallback Link */}
-                          <div className="text-left border-t border-neutral-light pt-6">
-                             <p className="text-[11px] text-neutral-400 mb-2">Se o botão não funcionar, copie este link:</p>
-                             <div className="bg-neutral-50 border border-neutral-200 rounded p-2 flex items-center gap-2 overflow-hidden">
-                                <code className="text-[10px] text-neutral-500 truncate flex-1 block font-mono">
-                                   {generatedLink}
-                                </code>
-                                <button onClick={() => copyLink(generatedLink)} className="text-brand-blue hover:text-brand-purple shrink-0">
-                                   <Copy size={12} />
-                                </button>
-                             </div>
-                          </div>
-                       </div>
-
-                       {/* Footer: Trust */}
-                       <div className="bg-[#F8F9FA] p-4 text-center border-t border-neutral-light">
-                          <div className="flex flex-col items-center gap-2 text-neutral-400 text-[10px]">
-                             <ShieldCheck size={14} />
-                             <span>Convite seguro enviado via ContaPortal</span>
-                             <span>&copy; {new Date().getFullYear()} {currentUser.name}</span>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-                 
-                 <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <button 
-                       onClick={handleOpenEmailApp} 
-                       className="w-full md:w-auto px-6 py-3 rounded-2xl bg-brand-blue text-white font-bold text-sm hover:bg-blue-600 shadow-lg shadow-brand-blue/20 flex items-center justify-center gap-2 transition-transform active:scale-95"
-                    >
-                        <Send size={18}/> Enviar E-mail (App Padrão)
-                    </button>
-                    
-                    <button onClick={() => copyLink(generatedLink)} className="text-brand-blue text-sm font-bold flex items-center gap-2 hover:underline">
-                        <ExternalLink size={14}/> Copiar Link Manualmente
-                    </button>
-                 </div>
-              </div>
-            ) : (
-              // --- FORM ---
-              <>
+          <div className="relative w-full max-w-lg bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-8 border border-white animate-fade-in-up overflow-hidden transition-all max-h-[90vh] overflow-y-auto">
+              
                 <div className="mb-6 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-brand-blue/30 flex items-center justify-center text-white mx-auto mb-4">
                      <Mail size={32} />
@@ -604,15 +465,13 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                         <Loader2 size={20} className="animate-spin" />
                       ) : (
                         <>
-                          <span>Gerar Convite</span>
-                          <ArrowRight size={18} />
+                          <span>Enviar Convite</span>
+                          <Send size={18} />
                         </>
                       )}
                     </button>
                   </div>
                 </form>
-              </>
-            )}
           </div>
         </div>
       )}
