@@ -100,60 +100,62 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
   if (viewMode === 'obligations') {
     return (
       <div className="space-y-6 animate-fade-in-up pb-8">
-        <div className="flex justify-between items-end">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
-            <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Obrigações Fiscais</h2>
-            <p className="text-neutral-medium text-lg">Envie guias de pagamento e controle os prazos dos seus clientes.</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Obrigações Fiscais</h2>
+            <p className="text-neutral-medium text-base md:text-lg">Envie guias de pagamento e controle os prazos.</p>
           </div>
           <button 
             onClick={() => setIsObligationModalOpen(true)}
-            className="btn-liquid px-6 py-3 rounded-2xl text-white font-bold flex items-center gap-2 shadow-lg"
+            className="w-full md:w-auto btn-liquid px-6 py-3.5 rounded-2xl text-white font-bold flex items-center justify-center gap-2 shadow-lg"
           >
             <Plus size={20} /> Nova Obrigação
           </button>
         </div>
 
         <div className="glass-panel-dark rounded-[2.5rem] overflow-hidden">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-neutral-light/50 text-neutral-medium uppercase text-xs font-bold">
-              <tr>
-                <th className="px-6 py-4">Cliente</th>
-                <th className="px-6 py-4">Obrigação</th>
-                <th className="px-6 py-4">Prazo</th>
-                <th className="px-6 py-4">Valor</th>
-                <th className="px-6 py-4">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-light/50">
-              {obligations.map(obl => (
-                <tr key={obl.id} className="hover:bg-white/50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-neutral-dark">{getClientName(obl.clientId)}</td>
-                  <td className="px-6 py-4">{obl.name}</td>
-                  <td className="px-6 py-4 flex items-center gap-2">
-                    <Calendar size={14} className="text-neutral-medium"/>
-                    {new Date(obl.deadline).toLocaleDateString('pt-PT')}
-                  </td>
-                  <td className="px-6 py-4 font-mono font-medium">{obl.amount.toFixed(2)}€</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase border ${
-                      obl.status === 'PAID' ? 'bg-green-50 text-status-success border-green-100' :
-                      obl.status === 'OVERDUE' ? 'bg-red-50 text-status-error border-red-100' :
-                      'bg-blue-50 text-brand-blue border-blue-100'
-                    }`}>
-                      {obl.status === 'PAID' ? 'Pago' : obl.status === 'OVERDUE' ? 'Atrasado' : 'Enviado'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {obligations.length === 0 && (
+          <div className="overflow-x-auto pb-4">
+            <table className="w-full text-sm text-left min-w-[800px]">
+              <thead className="bg-neutral-light/50 text-neutral-medium uppercase text-xs font-bold">
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-neutral-medium">
-                    Nenhuma obrigação registada. Clique em "Nova Obrigação" para começar.
-                  </td>
+                  <th className="px-6 py-4">Cliente</th>
+                  <th className="px-6 py-4">Obrigação</th>
+                  <th className="px-6 py-4">Prazo</th>
+                  <th className="px-6 py-4">Valor</th>
+                  <th className="px-6 py-4">Estado</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-neutral-light/50">
+                {obligations.map(obl => (
+                  <tr key={obl.id} className="hover:bg-white/50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-neutral-dark">{getClientName(obl.clientId)}</td>
+                    <td className="px-6 py-4">{obl.name}</td>
+                    <td className="px-6 py-4 flex items-center gap-2">
+                      <Calendar size={14} className="text-neutral-medium"/>
+                      {new Date(obl.deadline).toLocaleDateString('pt-PT')}
+                    </td>
+                    <td className="px-6 py-4 font-mono font-medium">{obl.amount.toFixed(2)}€</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase border ${
+                        obl.status === 'PAID' ? 'bg-green-50 text-status-success border-green-100' :
+                        obl.status === 'OVERDUE' ? 'bg-red-50 text-status-error border-red-100' :
+                        'bg-blue-50 text-brand-blue border-blue-100'
+                      }`}>
+                        {obl.status === 'PAID' ? 'Pago' : obl.status === 'OVERDUE' ? 'Atrasado' : 'Enviado'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {obligations.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-neutral-medium">
+                      Nenhuma obrigação registada. Clique em "Nova Obrigação" para começar.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Modal */}
@@ -233,10 +235,10 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
 
     return (
        <div className="space-y-6 animate-fade-in-up pb-8">
-         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
            <div>
-             <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Validação</h2>
-             <p className="text-neutral-medium text-lg">
+             <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Validação</h2>
+             <p className="text-neutral-medium text-base md:text-lg">
                Você tem <span className="font-bold text-brand-blue">{pendingDocsCount} documentos</span> aguardando aprovação.
              </p>
            </div>
@@ -345,13 +347,13 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
   }
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-8">
+    <div className="space-y-6 md:space-y-8 animate-fade-in-up pb-8">
       
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div 
            onClick={() => onNavigate('clients')}
-           className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-brand-blue/50 cursor-pointer transition-colors"
+           className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-auto min-h-[140px] md:h-40 relative overflow-hidden group hover:border-brand-blue/50 cursor-pointer transition-colors"
         >
             <div className="absolute right-0 top-0 p-6 opacity-10 text-brand-blue">
               <Users size={80} strokeWidth={1} />
@@ -372,7 +374,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
 
         <div 
            onClick={() => onNavigate('documents')}
-           className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-yellow-400 cursor-pointer transition-colors"
+           className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-auto min-h-[140px] md:h-40 relative overflow-hidden group hover:border-yellow-400 cursor-pointer transition-colors"
         >
             <div className="absolute right-0 top-0 p-6 opacity-10 text-status-warning">
               <FileCheck size={80} strokeWidth={1} />
@@ -391,7 +393,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
             </div>
         </div>
 
-        <div className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-40 relative overflow-hidden group hover:border-status-error/50 transition-colors">
+        <div className="glass-panel p-6 rounded-[2rem] flex flex-col justify-between h-auto min-h-[140px] md:h-40 relative overflow-hidden group hover:border-status-error/50 transition-colors">
             <div className="absolute right-0 top-0 p-6 opacity-10 text-status-error">
               <AlertCircle size={80} strokeWidth={1} />
             </div>
@@ -414,7 +416,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
       <div className="grid lg:grid-cols-3 gap-6">
         
         {/* Chart Section - Mocked Data Visualization */}
-        <div className="lg:col-span-2 glass-panel-dark p-8 rounded-[2rem] min-h-[420px]">
+        <div className="lg:col-span-2 glass-panel-dark p-6 md:p-8 rounded-[2rem] min-h-[350px] md:min-h-[420px]">
           <div className="flex justify-between items-center mb-8">
             <div>
               <h3 className="font-bold text-xl text-neutral-dark">Fluxo de Documentos</h3>
@@ -425,7 +427,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
             </button>
           </div>
           
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={[
                   { name: 'Jan', docs: 12, validated: 10 },
@@ -481,7 +483,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-neutral-dark">{client.companyName}</p>
+                    <p className="text-sm font-bold text-neutral-dark truncate max-w-[120px]">{client.companyName}</p>
                     <p className="text-[11px] text-neutral-medium font-medium tracking-wide">{client.nif}</p>
                   </div>
                 </div>
@@ -512,22 +514,22 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
 
       {/* Task Table */}
       <div className="glass-panel-dark overflow-hidden rounded-[2rem] border border-white/50">
-        <div className="p-8 border-b border-neutral-light/50 flex justify-between items-center">
+        <div className="p-6 md:p-8 border-b border-neutral-light/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h3 className="font-bold text-lg text-neutral-dark">Progresso Mensal</h3>
             <p className="text-sm text-neutral-medium">{new Date().toLocaleString('pt-PT', { month: 'long', year: 'numeric' })}</p>
           </div>
-          <div className="flex gap-2">
-             <button onClick={handleExportReport} className="px-4 py-2 bg-neutral-light rounded-xl text-xs font-bold text-neutral-medium hover:bg-white hover:text-brand-blue transition-colors flex items-center gap-2">
+          <div className="flex gap-2 w-full md:w-auto">
+             <button onClick={handleExportReport} className="w-full md:w-auto px-4 py-2 bg-neutral-light rounded-xl text-xs font-bold text-neutral-medium hover:bg-white hover:text-brand-blue transition-colors flex items-center justify-center gap-2">
                 <DownloadCloud size={14}/> Exportar CSV
              </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+        <div className="overflow-x-auto pb-2">
+          <table className="w-full text-sm text-left min-w-[700px]">
             <thead className="bg-neutral-light/30 text-neutral-medium uppercase text-[11px] font-bold tracking-wider">
               <tr>
-                <th className="px-8 py-5">Cliente</th>
+                <th className="px-6 md:px-8 py-5">Cliente</th>
                 <th className="px-6 py-5">Docs Recebidos</th>
                 <th className="px-6 py-5">IVA</th>
                 <th className="px-6 py-5">SS</th>
@@ -537,7 +539,7 @@ const DashboardAccountant: React.FC<DashboardAccountantProps> = ({
             <tbody className="divide-y divide-neutral-light/50">
               {clients.map(client => (
                 <tr key={client.id} className="hover:bg-blue-50/30 transition-colors group">
-                  <td className="px-8 py-5 font-bold text-neutral-dark">{client.companyName}</td>
+                  <td className="px-6 md:px-8 py-5 font-bold text-neutral-dark">{client.companyName}</td>
                   <td className="px-6 py-5">
                     <div className="w-32 bg-neutral-light rounded-full h-2 overflow-hidden shadow-inner">
                       <div 

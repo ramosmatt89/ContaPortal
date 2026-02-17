@@ -46,10 +46,10 @@ const Layout: React.FC<LayoutProps> = ({
         { id: 'profile', icon: Settings, label: 'Perfil' },
       ]
     : [
-        { id: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
+        { id: 'dashboard', icon: LayoutDashboard, label: 'Geral' },
         { id: 'clients', icon: Users, label: 'Clientes' },
         { id: 'documents', icon: FileText, label: 'Validar' },
-        { id: 'obligations', icon: CheckCircle, label: 'Obrigações' },
+        { id: 'obligations', icon: CheckCircle, label: 'Pagamentos' }, // Shortened label for mobile
         { id: 'settings', icon: Settings, label: 'Config' },
       ];
 
@@ -119,23 +119,26 @@ const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-80 relative pb-28 lg:pb-8 lg:pr-4 lg:pt-4">
+      {/* Added extra bottom padding (pb-36) on mobile to ensure content isn't covered by nav/FAB */}
+      <main className="flex-1 lg:ml-80 relative pb-36 lg:pb-8 lg:pr-4 lg:pt-4">
         
-        {/* Top Header */}
-        <header className="sticky top-0 z-40 lg:relative lg:top-auto px-4 py-4 lg:px-0 lg:py-0 flex justify-between items-center mb-6 lg:mb-10 transition-all duration-300">
+        {/* Mobile Header - Sticky & Glassy */}
+        <header className="sticky top-0 z-40 px-4 py-3 lg:static lg:p-0 flex justify-between items-center mb-6 lg:mb-10 transition-all duration-300 glass-panel lg:bg-none lg:backdrop-filter-none lg:shadow-none lg:border-none rounded-b-2xl lg:rounded-none">
           
           {/* Mobile Logo / Branding */}
-          <div className="lg:hidden flex items-center gap-3 glass-panel px-4 py-2 rounded-2xl">
-             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden shrink-0 p-0.5">
+          <div className="lg:hidden flex items-center gap-3">
+             <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden shrink-0 p-1 border border-white/50">
                {branding.logo ? (
                  <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
                ) : (
-                 <div className="w-full h-full bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center rounded-md">
+                 <div className="w-full h-full bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center rounded-lg">
                     {branding.name.charAt(0)}
                  </div>
                )}
             </div>
-            <h1 className="font-bold text-lg text-neutral-dark tracking-tight truncate max-w-[200px]">{branding.name}</h1>
+            <h1 className="font-bold text-base text-neutral-dark tracking-tight truncate max-w-[150px] leading-tight">
+              {branding.name}
+            </h1>
           </div>
 
           {/* Desktop Search */}
@@ -149,10 +152,10 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
 
           {/* User Profile (Logged In User) */}
-          <div className="flex items-center gap-3 lg:gap-5">
-             <button className="relative p-3 rounded-2xl glass-panel hover:bg-white transition-all active:scale-95 group hover:shadow-lg hover:shadow-brand-blue/10">
-              <Bell size={22} className="text-neutral-medium group-hover:text-brand-blue transition-colors" />
-              <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-status-error rounded-full border-2 border-white shadow-sm animate-pulse"></span>
+          <div className="flex items-center gap-2 lg:gap-5">
+             <button className="relative p-2.5 lg:p-3 rounded-xl lg:rounded-2xl lg:glass-panel hover:bg-white transition-all active:scale-95 group">
+              <Bell size={20} className="text-neutral-dark lg:text-neutral-medium group-hover:text-brand-blue transition-colors" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-status-error rounded-full border border-white shadow-sm animate-pulse"></span>
              </button>
              
              <div className="hidden lg:flex items-center gap-4 pl-4 border-l border-neutral-light/50">
@@ -174,7 +177,7 @@ const Layout: React.FC<LayoutProps> = ({
              <div className="lg:hidden" onClick={() => onNavigate(isClient ? 'profile' : 'settings')}>
                <img 
                  src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`}
-                 className="w-10 h-10 rounded-2xl border-2 border-white/50 shadow-sm object-cover bg-white" 
+                 className="w-9 h-9 rounded-xl border border-white shadow-sm object-cover bg-white" 
                  alt="Profile"
                />
              </div>
@@ -188,38 +191,55 @@ const Layout: React.FC<LayoutProps> = ({
 
       </main>
 
-      {/* Mobile Bottom Navigation - Vivid App Style */}
-      <nav className="fixed bottom-6 inset-x-4 glass-panel-dark rounded-[2.5rem] lg:hidden z-50 shadow-2xl shadow-brand-blue/20">
-        <div className="flex justify-between items-center px-6 py-4">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`relative flex flex-col items-center gap-1 transition-all duration-300 ${
-                currentView === item.id ? 'text-brand-blue -translate-y-2' : 'text-neutral-medium'
-              }`}
-            >
-              <div className={`p-3 rounded-2xl transition-all duration-300 ${
-                currentView === item.id 
-                  ? 'bg-gradient-to-tr from-brand-blue to-brand-purple text-white shadow-lg shadow-brand-blue/40' 
-                  : 'hover:bg-blue-50'
-              }`}>
-                <item.icon size={24} strokeWidth={currentView === item.id ? 2.5 : 2} />
-              </div>
-              {currentView === item.id && (
-                <span className="absolute -bottom-5 text-[10px] font-bold tracking-wide animate-fade-in-up text-brand-blue">
+      {/* Mobile Bottom Navigation - Floating Glass Dock */}
+      {/* Increased z-index, added backdrop blur, detached from bottom with margin */}
+      <nav className="fixed bottom-4 left-4 right-4 lg:hidden z-50 animate-fade-in-up">
+        <div className="glass-panel-dark rounded-[2rem] shadow-2xl shadow-brand-blue/10 border border-white/80 backdrop-blur-xl">
+          <div className="flex justify-around items-center px-2 py-3">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={`relative flex flex-col items-center gap-1 transition-all duration-300 p-2 rounded-2xl flex-1 ${
+                  currentView === item.id ? 'text-brand-blue' : 'text-neutral-medium hover:bg-white/40'
+                }`}
+              >
+                <item.icon 
+                  size={currentView === item.id ? 24 : 22} 
+                  strokeWidth={currentView === item.id ? 2.5 : 2}
+                  className={`transition-transform duration-300 ${currentView === item.id ? '-translate-y-1' : ''}`}
+                />
+                <span className={`text-[10px] font-bold tracking-wide transition-all duration-300 ${
+                  currentView === item.id ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 hidden'
+                }`}>
                   {item.label}
                 </span>
-              )}
-            </button>
-          ))}
+                
+                {/* Active Indicator Dot */}
+                {currentView === item.id && (
+                  <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-brand-blue"></div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
       {/* Mobile Floating Action Button (Client Only) */}
+      {/* Moved higher up (bottom-28) to clear the floating nav */}
       {isClient && (
-        <button className="fixed bottom-32 right-6 lg:hidden w-16 h-16 btn-liquid rounded-full flex items-center justify-center z-40 active:scale-90 transition-transform text-white">
-          <Plus size={32} />
+        <button 
+          onClick={() => {
+             // Dispatch a custom event or trigger upload logic if readily available globally
+             // For now, this is a visual indicator that often links to the upload modal 
+             // in the dashboard component. We rely on the dashboard 'triggerUpload' usually.
+             // This button is mostly decorative/contextual in this layout structure unless wired.
+             const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+             if(fileInput) fileInput.click();
+          }}
+          className="fixed bottom-28 right-6 lg:hidden w-14 h-14 btn-liquid rounded-2xl flex items-center justify-center z-40 active:scale-90 transition-transform text-white shadow-xl shadow-brand-blue/30"
+        >
+          <Plus size={28} />
         </button>
       )}
 

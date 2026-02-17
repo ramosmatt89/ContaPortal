@@ -252,7 +252,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
   };
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-8 relative">
+    <div className="space-y-6 md:space-y-8 animate-fade-in-up pb-8 relative">
       
       {/* Toast */}
       {toastMessage && (
@@ -265,8 +265,8 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
-          <p className="text-neutral-medium text-lg max-w-xl leading-relaxed">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Carteira de Clientes</h2>
+          <p className="text-neutral-medium text-base md:text-lg max-w-xl leading-relaxed">
             Gerencie o acesso ao portal. Os clientes recebem um <span className="text-brand-blue font-bold">Convite Seguro (7 dias)</span>.
           </p>
         </div>
@@ -311,15 +311,15 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                        <div className={`w-3 h-3 rounded-full ${client.status === 'ACTIVE' ? 'bg-status-success' : client.status === 'PENDING' ? 'bg-brand-blue' : 'bg-neutral-medium'}`}></div>
                      </div>
                    </div>
-                   <div>
-                     <h3 className="font-bold text-lg text-neutral-dark leading-tight">{client.companyName}</h3>
+                   <div className="min-w-0 pr-20">
+                     <h3 className="font-bold text-lg text-neutral-dark leading-tight truncate">{client.companyName}</h3>
                      <p className="text-sm text-neutral-medium font-mono tracking-wide opacity-80">{client.nif || 'N/A'}</p>
                    </div>
                  </div>
 
                  <div className="bg-white/40 rounded-2xl p-4 mb-6 space-y-3">
                    <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
+                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm shrink-0">
                        <UserIcon size={14} />
                      </div>
                      <div className="flex-1 overflow-hidden">
@@ -328,7 +328,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                      </div>
                    </div>
                    <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm">
+                     <div className="w-8 h-8 rounded-full bg-white text-neutral-medium flex items-center justify-center shadow-sm shrink-0">
                        <Mail size={14} />
                      </div>
                      <div className="flex-1 overflow-hidden">
@@ -338,7 +338,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                    </div>
                  </div>
 
-                 <div className="flex items-center justify-between pt-2 border-t border-white/50">
+                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-white/50 gap-4">
                    <span className={`text-xs font-bold ${
                      client.status === 'ACTIVE' ? 'text-status-success' : 
                      isExpired ? 'text-status-error' : 'text-neutral-medium'
@@ -346,7 +346,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                      {client.status === 'ACTIVE' ? 'Convite Aceito' : isExpired ? 'Token Expirado' : 'Aguardando Registo'}
                    </span>
                    
-                   <div className="flex items-center gap-2">
+                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                      {(client.status === 'PENDING' || client.status === 'INVITED') && (
                         <>
                           <button 

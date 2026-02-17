@@ -68,13 +68,13 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
   const getStatusBadge = (status: DocStatus) => {
      switch(status) {
        case DocStatus.APPROVED:
-         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold bg-green-50 text-status-success border border-green-100"><Check size={12}/> Aprovado</span>;
+         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-green-50 text-status-success border border-green-100"><Check size={12}/> Aprovado</span>;
        case DocStatus.REJECTED:
-         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold bg-red-50 text-status-error border border-red-100"><AlertCircle size={12}/> Rejeitado</span>;
+         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-red-50 text-status-error border border-red-100"><AlertCircle size={12}/> Rejeitado</span>;
        case DocStatus.PENDING:
-         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-100"><Clock size={12}/> Pendente</span>;
+         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-100"><Clock size={12}/> Pendente</span>;
        default:
-         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-bold bg-blue-50 text-brand-blue border border-blue-100">Em Análise</span>;
+         return <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[10px] md:text-[11px] font-bold bg-blue-50 text-brand-blue border border-blue-100">Em Análise</span>;
      }
   };
 
@@ -84,16 +84,16 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
 
     return (
       <div className="space-y-6 animate-fade-in-up pb-8">
-        <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div>
-            <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Arquivo Digital</h2>
-            <p className="text-neutral-medium text-lg">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Arquivo Digital</h2>
+            <p className="text-neutral-medium text-base md:text-lg">
               Checklist de faturas, despesas e extratos enviados.
             </p>
           </div>
           
-          <div className="flex gap-3 w-full md:w-auto">
-             <div className="relative group flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto mt-2 md:mt-0">
+             <div className="relative group flex-1 w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-medium group-focus-within:text-brand-blue transition-colors" size={20} />
                 <input 
                   type="text" 
@@ -105,30 +105,30 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
              </div>
              <button 
                 onClick={triggerUpload}
-                className="btn-liquid px-6 rounded-2xl text-white font-bold flex items-center gap-2 shadow-lg"
+                className="btn-liquid px-6 py-3.5 rounded-2xl text-white font-bold flex items-center justify-center gap-2 shadow-lg w-full sm:w-auto"
              >
                <UploadCloud size={20} />
-               <span className="hidden md:inline">Enviar</span>
+               <span>Enviar</span>
              </button>
              <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
           </div>
         </div>
 
-        <div className="glass-panel-dark rounded-[2.5rem] overflow-hidden p-6 min-h-[400px]">
+        <div className="glass-panel-dark rounded-[2rem] md:rounded-[2.5rem] overflow-hidden p-4 md:p-6 min-h-[400px]">
           {filteredDocs.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="grid gap-3 md:gap-4">
               {filteredDocs.map((doc) => (
-                <div key={doc.id} className="group p-5 bg-white/40 rounded-[1.5rem] flex flex-col md:flex-row items-start md:items-center justify-between hover:bg-white/80 transition-all border border-white/50 hover:border-brand-blue/30 cursor-pointer shadow-sm">
-                  <div className="flex items-center gap-5 mb-4 md:mb-0">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${
+                <div key={doc.id} className="group p-4 md:p-5 bg-white/40 rounded-2xl md:rounded-[1.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-white/80 transition-all border border-white/50 hover:border-brand-blue/30 cursor-pointer shadow-sm gap-3">
+                  <div className="flex items-center gap-4 w-full sm:w-auto overflow-hidden">
+                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 shrink-0 ${
                       doc.type === 'FATURA' ? 'bg-blue-50 text-brand-blue' : 
                       doc.type === 'DESPESA' ? 'bg-purple-50 text-brand-purple' : 'bg-neutral-100 text-neutral-medium'
                     }`}>
-                      <FileText size={24} className="stroke-[1.5]" />
+                      <FileText size={20} className="stroke-[1.5] md:w-6 md:h-6" />
                     </div>
-                    <div>
-                      <h4 className="font-bold text-neutral-dark text-lg mb-1">{doc.title}</h4>
-                      <p className="text-sm font-medium text-neutral-medium flex items-center gap-2">
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-neutral-dark text-base md:text-lg mb-0.5 truncate">{doc.title}</h4>
+                      <p className="text-xs md:text-sm font-medium text-neutral-medium flex items-center gap-2">
                         {new Date(doc.date).toLocaleDateString('pt-PT')} 
                         <span className="w-1.5 h-1.5 rounded-full bg-neutral-medium/30"></span> 
                         {doc.type}
@@ -136,10 +136,10 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-white/50 pt-3 sm:pt-0">
                     {getStatusBadge(doc.status)}
                     <button className="p-2 rounded-xl hover:bg-neutral-light text-neutral-medium hover:text-brand-blue transition-colors" title="Download">
-                      <DownloadCloud size={20} />
+                      <DownloadCloud size={18} md:size={20} />
                     </button>
                   </div>
                 </div>
@@ -194,13 +194,13 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
      return (
       <div className="space-y-6 animate-fade-in-up pb-8">
         <div>
-          <h2 className="text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Obrigações Fiscais</h2>
-          <p className="text-neutral-medium text-lg">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-dark tracking-tight mb-2">Obrigações Fiscais</h2>
+          <p className="text-neutral-medium text-base md:text-lg">
             Guias de pagamento emitidas pelo contabilista para aprovação.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
            {obligations.map(obl => (
              <div key={obl.id} className="glass-panel p-6 rounded-[2rem] relative overflow-hidden group hover:-translate-y-1 transition-transform">
                 <div className={`absolute top-0 left-0 right-0 h-2 ${
@@ -266,12 +266,12 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
 
   // --- VIEW: DASHBOARD (DEFAULT) ---
   return (
-    <div className="space-y-8 animate-fade-in-up pb-8">
+    <div className="space-y-6 md:space-y-8 animate-fade-in-up pb-8">
       
       {/* Hero Section */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* Main Welcome Card */}
-        <div className="md:col-span-2 relative overflow-hidden rounded-[2.5rem] p-8 shadow-2xl shadow-brand-blue/20 border border-white/30 group">
+        <div className="md:col-span-2 relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl shadow-brand-blue/20 border border-white/30 group">
            <div className="absolute inset-0 bg-gradient-to-br from-brand-blue via-[#4a90e2] to-brand-purple transition-all duration-1000 group-hover:scale-105"></div>
            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -mr-20 -mt-20 animate-pulse-slow"></div>
            <div className="relative z-10 text-white h-full flex flex-col justify-between">
@@ -280,8 +280,8 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
                  <span className="text-[10px] font-bold uppercase tracking-widest border border-white/30 px-2 py-1 rounded-lg backdrop-blur-md">Visão Geral</span>
                  <span className="text-xs font-semibold">{new Date().toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}</span>
                </div>
-               <h2 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">Olá, {user.name.split(' ')[0]}! 👋</h2>
-               <p className="text-blue-50 text-lg max-w-md font-medium">
+               <h2 className="text-2xl md:text-5xl font-extrabold mb-3 tracking-tight">Olá, {user.name.split(' ')[0]}! 👋</h2>
+               <p className="text-blue-50 text-base md:text-lg max-w-md font-medium leading-relaxed">
                  Bem-vindo ao portal de {accountantName}.
                  {pendingDocs > 0 ? ` Você tem ${pendingDocs} documentos pendentes.` : ' Tudo regularizado.'}
                </p>
@@ -290,7 +290,7 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
              <div className="mt-8 flex flex-wrap gap-4">
                <button 
                  onClick={triggerUpload}
-                 className="bg-white text-brand-blue hover:bg-blue-50 px-7 py-4 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
+                 className="w-full md:w-auto bg-white text-brand-blue hover:bg-blue-50 px-7 py-3.5 md:py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
                >
                  <UploadCloud size={20} className="text-brand-purple" />
                  Enviar Documento
@@ -301,7 +301,7 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
         </div>
 
         {/* Calendar / Missing Items Widget */}
-        <div className="glass-panel p-8 rounded-[2.5rem] flex flex-col justify-between relative overflow-hidden group">
+        <div className="glass-panel p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] flex flex-col justify-between relative overflow-hidden group">
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-purple-50 text-brand-purple flex items-center justify-center">
@@ -332,30 +332,31 @@ const DashboardClient: React.FC<DashboardClientProps> = ({
 
       {/* Recent Documents */}
       <section>
-        <div className="flex justify-between items-center mb-6 px-2">
+        <div className="flex justify-between items-center mb-4 md:mb-6 px-2">
           <h3 className="font-bold text-2xl text-neutral-dark">Últimos Envios</h3>
         </div>
 
-        <div className="glass-panel-dark rounded-[2.5rem] overflow-hidden p-3 min-h-[200px]">
+        <div className="glass-panel-dark rounded-[2rem] md:rounded-[2.5rem] overflow-hidden p-3 min-h-[200px]">
           {documents.length > 0 ? (
             documents.slice(0, 5).map((doc) => (
-              <div key={doc.id} className="group p-5 rounded-[1.5rem] flex items-center justify-between hover:bg-white/60 transition-all border border-transparent hover:border-white/50 mb-1 last:mb-0 cursor-pointer">
-                <div className="flex items-center gap-5">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 ${
+              <div key={doc.id} className="group p-4 md:p-5 rounded-2xl md:rounded-[1.5rem] flex items-center justify-between hover:bg-white/60 transition-all border border-transparent hover:border-white/50 mb-1 last:mb-0 cursor-pointer">
+                <div className="flex items-center gap-4 md:gap-5 overflow-hidden">
+                  <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 shrink-0 ${
                     doc.type === 'FATURA' ? 'bg-blue-50 text-brand-blue' : 
                     doc.type === 'DESPESA' ? 'bg-purple-50 text-brand-purple' : 'bg-neutral-100 text-neutral-medium'
                   }`}>
-                    <FileText size={24} />
+                    <FileText size={20} md:size={24} />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-neutral-dark text-base mb-0.5">{doc.title}</h4>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-neutral-dark text-sm md:text-base mb-0.5 truncate">{doc.title}</h4>
                     <p className="text-xs font-medium text-neutral-medium flex items-center gap-2">
                       {new Date(doc.date).toLocaleDateString('pt-PT')} • {doc.type}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="hidden md:block">{getStatusBadge(doc.status)}</div>
+                  <div className="hidden sm:block">{getStatusBadge(doc.status)}</div>
+                  <div className="sm:hidden w-3 h-3 rounded-full bg-status-success"></div>
                   <ChevronRight size={20} className="text-neutral-medium" />
                 </div>
               </div>
