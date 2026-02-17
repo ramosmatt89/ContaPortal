@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   RefreshCw,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Link
 } from 'lucide-react';
 
 interface ClientsManagementProps {
@@ -193,6 +194,16 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     showToast(`Novo convite enviado!`);
   };
 
+  const handleCopyInviteLink = (client: Client) => {
+    if (client.inviteToken) {
+        const link = getLinkFromToken(client.inviteToken);
+        navigator.clipboard.writeText(link);
+        showToast('Link de convite copiado manualmente!');
+    } else {
+        showToast('Este cliente não tem um convite ativo.');
+    }
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setGeneratedLink(null);
@@ -218,11 +229,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
        showToast(newStatus === 'INACTIVE' ? 'Cliente desativado' : 'Cliente ativado');
     }
   };
-
-  const copyLink = (link: string) => {
-    navigator.clipboard.writeText(link);
-    showToast('Link copiado para a área de transferência');
-  }
 
   const getStatusBadge = (client: Client) => {
     if (client.status === 'PENDING' || client.status === 'INVITED') {
@@ -349,6 +355,14 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
                             className={`p-2 rounded-xl transition-colors ${isExpired ? 'bg-red-50 text-status-error hover:bg-red-100' : 'bg-blue-50 text-brand-blue hover:bg-brand-blue hover:text-white'}`}
                           >
                             {isExpired ? <RefreshCw size={18} /> : <Send size={18} />}
+                          </button>
+
+                          <button 
+                            title="Copiar Link Manualmente"
+                            onClick={() => handleCopyInviteLink(client)}
+                            className="p-2 rounded-xl bg-purple-50 text-brand-purple hover:bg-brand-purple hover:text-white transition-colors"
+                          >
+                            <Link size={18} />
                           </button>
                         </>
                      )}
