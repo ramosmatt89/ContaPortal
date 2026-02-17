@@ -22,7 +22,8 @@ const Login: React.FC<LoginProps> = ({
   validatedInvite,
   inviteError
 }) => {
-  const [isRegistering, setIsRegistering] = useState(false);
+  // Initialize state based on invitation presence to avoid layout shift/flicker
+  const [isRegistering, setIsRegistering] = useState(!!validatedInvite);
   const [role, setRole] = useState<UserRole>(UserRole.ACCOUNTANT);
   
   // Form State
@@ -209,7 +210,7 @@ const Login: React.FC<LoginProps> = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center ml-2">
                  <label htmlFor="password" className="text-xs font-bold text-neutral-dark">
-                   {isRegistering ? 'Crie uma Palavra-passe' : 'Palavra-passe'}
+                   {isRegistering ? 'Crie a sua Palavra-passe' : 'Palavra-passe'}
                  </label>
                  {!isRegistering && <a href="#" className="text-xs font-bold text-brand-blue hover:text-brand-purple">Esqueceu-se?</a>}
               </div>
@@ -225,7 +226,7 @@ const Login: React.FC<LoginProps> = ({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-white/60 border border-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 text-neutral-dark font-medium transition-all"
-                  placeholder={isRegistering ? "Digite a sua nova senha" : "••••••••"}
+                  placeholder={isRegistering ? "Crie a sua senha secreta" : "••••••••"}
                 />
               </div>
             </div>

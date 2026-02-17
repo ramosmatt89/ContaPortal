@@ -229,7 +229,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
       case 'OVERDUE':
         return <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 border border-red-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><ShieldAlert size={12}/> Atrasado</span>;
       case 'ACTIVE':
-        // UPDATED: "Convite Aceite" -> "Convite Aceito"
+        // UPDATED: Green Badge for Accepted Invite
         return <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm"><CheckCircle size={12}/> Convite Aceito</span>;
       default:
         return null;
