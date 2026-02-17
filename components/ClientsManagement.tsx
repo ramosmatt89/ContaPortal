@@ -142,17 +142,33 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
       onAddClient(createdClient);
       
-      // CRITICAL FIX: Generate and copy link immediately since there is no real backend
       const link = getLinkFromToken(token);
+      
+      // --- SIMULAÇÃO DE LOG DE ENVIO DE EMAIL (BACKEND) ---
+      console.group("📧 SIMULAÇÃO DE ENVIO DE EMAIL (BACKEND)");
+      console.log(`%c[Servidor] Enviando email para: ${newClient.email}`, 'color: #007BFF; font-weight: bold;');
+      console.log(`%cAssunto: Convite para acessar o sistema`, 'color: #343A40;');
+      console.log(`%cCorpo do Email (HTML):`, 'color: #343A40; font-weight: bold;');
+      console.log(`
+        <p>Olá ${newClient.contactPerson},</p>
+        <p>Você recebeu um convite para acessar o sistema.</p>
+        <a href="${link}" 
+           style="background-color:#4CAF50;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">
+           Aceitar Convite
+        </a>
+        <p>Se o botão não funcionar, copie e cole este link no navegador: ${link}</p>
+      `);
+      console.groupEnd();
+      
+      // Copy link for demo purposes so user can actually use it
       navigator.clipboard.writeText(link).then(() => {
-          console.log("LINK COPIADO (Simulação de Backend):", link);
+          console.log("%cLink copiado para área de transferência (Demo)", 'color: green');
       }).catch(err => console.error("Erro ao copiar link:", err));
 
       setIsLoading(false);
       handleCloseModal(); 
       
-      // Updated message to inform user the link was copied
-      showToast(`Convite enviado! Link copiado para a área de transferência (Demo).`);
+      showToast(`Convite enviado com sucesso.`);
     }, 2000); 
   };
 
@@ -174,7 +190,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     const link = getLinkFromToken(token);
     navigator.clipboard.writeText(link);
     
-    showToast(`Novo convite enviado! Link copiado.`);
+    showToast(`Novo convite enviado!`);
   };
 
   const handleCloseModal = () => {
