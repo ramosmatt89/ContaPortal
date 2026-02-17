@@ -68,11 +68,11 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="p-8 pb-4 flex items-center gap-4">
           {/* Dynamic Branding Logo (Accountant's Logo) */}
           {branding.logo ? (
-            <div className="w-10 h-10 rounded-xl shadow-lg shadow-brand-blue/20 overflow-hidden bg-white shrink-0">
-              <img src={branding.logo} alt="Logo" className="w-full h-full object-cover" />
+            <div className="w-12 h-12 rounded-xl shadow-lg shadow-brand-blue/10 overflow-hidden bg-white shrink-0 flex items-center justify-center p-1">
+              <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-purple shadow-lg shadow-brand-blue/30 flex items-center justify-center text-white font-bold text-xl shrink-0">
               {branding.name.charAt(0)}
             </div>
           )}
@@ -126,11 +126,13 @@ const Layout: React.FC<LayoutProps> = ({
           
           {/* Mobile Logo / Branding */}
           <div className="lg:hidden flex items-center gap-3 glass-panel px-4 py-2 rounded-2xl">
-             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden shrink-0">
+             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-white font-bold text-lg shadow-md overflow-hidden shrink-0 p-0.5">
                {branding.logo ? (
-                 <img src={branding.logo} alt="Logo" className="w-full h-full object-cover" />
+                 <img src={branding.logo} alt="Logo" className="w-full h-full object-contain" />
                ) : (
-                 branding.name.charAt(0)
+                 <div className="w-full h-full bg-gradient-to-tr from-brand-blue to-brand-purple flex items-center justify-center rounded-md">
+                    {branding.name.charAt(0)}
+                 </div>
                )}
             </div>
             <h1 className="font-bold text-lg text-neutral-dark tracking-tight truncate max-w-[200px]">{branding.name}</h1>

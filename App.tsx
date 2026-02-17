@@ -61,12 +61,26 @@ const App: React.FC = () => {
   const [pendingInviteClient, setPendingInviteClient] = useState<Client | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
-  // --- PERSISTENCE EFFECTS ---
+  // --- PERSISTENCE EFFECTS & SYNC ---
 
   useEffect(() => { localStorage.setItem('cp_usersDB', JSON.stringify(usersDB)); }, [usersDB]);
   useEffect(() => { localStorage.setItem('cp_dataDB', JSON.stringify(dataDB)); }, [dataDB]);
   useEffect(() => { localStorage.setItem('cp_docsDB', JSON.stringify(docsDB)); }, [docsDB]);
   useEffect(() => { localStorage.setItem('cp_obligationsDB', JSON.stringify(obligationsDB)); }, [obligationsDB]);
+
+  // Real-time Sync across tabs (Simulating backend socket updates)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cp_usersDB') {
+        setUsersDB(e.newValue ? JSON.parse(e.newValue) : []);
+      }
+      if (e.key === 'cp_dataDB') {
+        setDataDB(e.newValue ? JSON.parse(e.newValue) : {});
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Load Clients for the current user when logged in
   useEffect(() => {
@@ -85,45 +99,36 @@ const App: React.FC = () => {
 
     if (token) {
       // 1. Try to decode as a "Stateless Token" (Base64 Encoded Data)
-      // This allows the invite to work even if the client is on a different machine than the accountant
       try {
         const jsonString = decodeURIComponent(escape(atob(token)));
         const payload = JSON.parse(jsonString);
         
-        // Payload expected: { nm, em, cp, an, aid, exp }
-        
         if (payload.exp && payload.em && payload.aid) {
-            // Check expiration
             if (payload.exp < Date.now()) {
                 setInviteError("Este link de convite expirou (validade de 7 dias). Solicite um novo ao seu contabilista.");
             } else {
-                // Construct a temporary client object from the stateless token
                 const statelessClient: Client = {
                     id: `invite_st_${Date.now()}`,
                     companyName: payload.nm,
                     email: payload.em,
                     contactPerson: payload.cp,
-                    nif: '', // Not in token
+                    nif: '', 
                     avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.nm)}&background=random`,
                     status: 'PENDING',
                     pendingDocs: 0,
-                    accountantId: payload.aid, // The accountant ID from the token
+                    accountantId: payload.aid,
                     inviteToken: token
                 };
-                
-                // Add accountant name hint if needed (not in Client type but useful for context)
-                // We'll trust the token data for the registration phase.
                 setPendingInviteClient(statelessClient);
                 window.history.replaceState({}, document.title, window.location.pathname);
-                return; // Succcess, exit effect
+                return;
             }
         }
       } catch (e) {
-         // Token is likely not a stateless token (could be legacy UUID)
-         // Fallback to searching dataDB
+         // Fallback
       }
 
-      // 2. Legacy Lookup: Find client with this token across all accountants in LOCAL DB
+      // 2. Legacy Lookup
       let foundClient: Client | null = null;
       let accountantId: string | null = null;
 
@@ -137,7 +142,6 @@ const App: React.FC = () => {
 
       if (foundClient && accountantId) {
         const client = foundClient as Client;
-        
         if (client.inviteExpires && new Date(client.inviteExpires) < new Date()) {
           setInviteError("Este link de convite expirou (validade de 7 dias). Solicite um novo ao seu contabilista.");
         } else if (client.status !== 'PENDING' && client.status !== 'INVITED') {
@@ -147,7 +151,6 @@ const App: React.FC = () => {
            window.history.replaceState({}, document.title, window.location.pathname);
         }
       } else {
-        // If we reached here, both stateless decode failed AND legacy lookup failed.
         setInviteError("Convite inválido ou não encontrado. Verifique se copiou o link corretamente.");
       }
     }
@@ -163,9 +166,6 @@ const App: React.FC = () => {
       const user = usersDB.find(u => u.email.toLowerCase() === email.toLowerCase());
       
       if (user) {
-        // Immediate Deletion Logic means we don't need to check for 'INACTIVE' or grace periods anymore.
-        // If the user exists in usersDB, they are valid.
-        
         if (pass.length >= 4) { 
           setCurrentUser(user);
           if (rememberMe) localStorage.setItem('cp_currentUser', JSON.stringify(user));
@@ -207,23 +207,16 @@ const App: React.FC = () => {
         setDataDB(prev => ({ ...prev, [newUser.id]: [] }));
       }
 
-      // Sync Invitation Logic (Associate Client to Accountant)
       if (pendingInviteClient) {
-         // Logic to link client to accountant.
-         // Case A: Accountant exists on this machine (same browser simulation)
-         // Case B: Accountant doesn't exist (cross-device simulation via Stateless Token)
-
          let accountantId = Object.keys(dataDB).find(accId => 
              dataDB[accId].some(c => c.email === pendingInviteClient.email)
          );
          
-         // If not found in local DB, check if the token carried the accountant ID
          if (!accountantId && pendingInviteClient.accountantId) {
              accountantId = pendingInviteClient.accountantId;
          }
 
          if (accountantId) {
-             // If we have data for this accountant (Case A)
              if (dataDB[accountantId]) {
                  const updatedClientList = dataDB[accountantId].map(c => 
                     c.email === pendingInviteClient.email 
@@ -239,8 +232,6 @@ const App: React.FC = () => {
                  );
                  setDataDB(prev => ({ ...prev, [accountantId]: updatedClientList }));
              } 
-             // Case B: We are on the Client's machine. We need to create a stub of the relationship 
-             // so the dashboard works, even if we can't update the Accountant's DB on the other machine.
              else {
                  const newClientRecord: Client = {
                     ...pendingInviteClient,
@@ -249,19 +240,12 @@ const App: React.FC = () => {
                     companyName: newUser.name,
                     avatarUrl: newUser.avatarUrl || pendingInviteClient.avatarUrl
                  };
-                 
-                 // Create client list for this accountant ID locally
-                 setDataDB(prev => ({
-                     ...prev,
-                     [accountantId!]: [ newClientRecord ]
-                 }));
-
-                 // Ensure the Accountant User stub exists so branding works
+                 setDataDB(prev => ({ ...prev, [accountantId!]: [ newClientRecord ] }));
                  setUsersDB(prev => {
                      if (prev.find(u => u.id === accountantId)) return prev;
                      return [...prev, {
                          id: accountantId!,
-                         name: 'O Seu Contabilista', // Default if we don't have name, but branding might fetch from ID
+                         name: 'O Seu Contabilista', 
                          email: 'contabilista@portal.pt',
                          role: UserRole.ACCOUNTANT,
                          status: 'ACTIVE'
@@ -269,17 +253,13 @@ const App: React.FC = () => {
                  });
              }
          }
-         
          setPendingInviteClient(null);
       } else {
-         // Legacy invite matching (fallback)
          let wasInvited = false;
          const updatedDataDB = { ...dataDB };
-         
          Object.keys(updatedDataDB).forEach(accountantId => {
            const accountantClients = updatedDataDB[accountantId];
            const clientIndex = accountantClients.findIndex(c => c.email.toLowerCase() === email.toLowerCase());
-           
            if (clientIndex > -1) {
              wasInvited = true;
              updatedDataDB[accountantId][clientIndex] = {
@@ -290,10 +270,7 @@ const App: React.FC = () => {
              };
            }
          });
-
-         if (wasInvited) {
-           setDataDB(updatedDataDB);
-         }
+         if (wasInvited) setDataDB(updatedDataDB);
       }
       
       setCurrentUser(newUser);
@@ -312,36 +289,22 @@ const App: React.FC = () => {
 
   const handleCancelAccount = () => {
     if (!currentUser) return;
-    
-    // IMMEDIATE DELETION LOGIC (HARD DELETE)
-    
-    // 1. Remove from Users DB
     setUsersDB(prev => prev.filter(u => u.id !== currentUser.id));
 
     if (currentUser.role === UserRole.ACCOUNTANT) {
-        // 2. If Accountant, remove their entry from Data DB (Client lists)
         const newDataDB = { ...dataDB };
         delete newDataDB[currentUser.id];
         setDataDB(newDataDB);
-        // Note: We could recursively delete docs/obligations for all clients of this accountant,
-        // but removing the user and their client map effectively kills access.
     } else {
-        // 3. If Client, find them in the accountant's list and remove
         const newDataDB = { ...dataDB };
         Object.keys(newDataDB).forEach(accId => {
-            // Filter out this client from any accountant's list based on email or ID match
             newDataDB[accId] = newDataDB[accId].filter(c => c.email !== currentUser.email && c.id !== currentUser.id);
         });
         setDataDB(newDataDB);
-
-        // 4. Remove specific data owned by this client
         setDocsDB(prev => prev.filter(d => d.clientId !== currentUser.id));
         setObligationsDB(prev => prev.filter(o => o.clientId !== currentUser.id));
     }
-
-    // 5. Logout Immediately
     handleLogout();
-    
     alert('A sua conta e todos os dados associados foram eliminados permanentemente.');
   };
 
@@ -400,7 +363,6 @@ const App: React.FC = () => {
 
   const handleUploadDocument = (file: File, type: DocType = DocType.INVOICE) => {
     if (!currentUser) return;
-
     const newDoc: Document = {
       id: `doc_${Date.now()}`,
       title: file.name,
@@ -410,12 +372,9 @@ const App: React.FC = () => {
       clientId: currentUser.id,
       fileUrl: URL.createObjectURL(file)
     };
-
     setDocsDB(prev => [newDoc, ...prev]);
-    
     const allClients = Object.values(dataDB).flat() as Client[];
     const clientRecord = allClients.find(c => c.email === currentUser.email);
-    
     if (clientRecord) {
        const accountantId = Object.keys(dataDB).find(accId => 
          dataDB[accId].some(c => c.id === clientRecord.id)
@@ -432,9 +391,7 @@ const App: React.FC = () => {
   const handleValidateDocument = (docId: string, newStatus: DocStatus) => {
     const docToUpdate = docsDB.find(d => d.id === docId);
     if (!docToUpdate) return;
-
     setDocsDB(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
-
     if (newStatus !== DocStatus.PENDING) {
         const docOwnerUser = usersDB.find(u => u.id === docToUpdate.clientId);
         if (docOwnerUser) {
@@ -475,6 +432,7 @@ const App: React.FC = () => {
         logo: currentUser.avatarUrl || '' 
       };
     } else if (currentUser.role === UserRole.CLIENT) {
+      // Find the accountant who has this client in their dataDB list
       const allClients = Object.values(dataDB).flat() as Client[];
       const clientRecord = allClients.find(c => c.email === currentUser.email);
       
