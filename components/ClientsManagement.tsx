@@ -66,7 +66,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,8 +123,6 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     });
 
     // Simulate Backend Email Sending Process
-    // In a real app, you would call your API endpoint here (e.g., /api/send-invite)
-    // which would use Nodemailer to send the actual email.
     setTimeout(() => {
       const newId = `c${Date.now()}`;
       
@@ -144,10 +142,18 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
 
       onAddClient(createdClient);
       
+      // CRITICAL FIX: Generate and copy link immediately since there is no real backend
+      const link = getLinkFromToken(token);
+      navigator.clipboard.writeText(link).then(() => {
+          console.log("LINK COPIADO (Simulação de Backend):", link);
+      }).catch(err => console.error("Erro ao copiar link:", err));
+
       setIsLoading(false);
-      handleCloseModal(); // Close modal immediately
-      showToast(`Convite enviado com sucesso para ${newClient.email}`);
-    }, 2000); // 2 second delay to simulate network request
+      handleCloseModal(); 
+      
+      // Updated message to inform user the link was copied
+      showToast(`Convite enviado! Link copiado para a área de transferência (Demo).`);
+    }, 2000); 
   };
 
   const handleResendInvite = (client: Client) => {
@@ -164,8 +170,11 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
         inviteExpires: expires
     });
     
-    // Also simulate background sending for resend
-    showToast(`Novo convite enviado para ${client.email}`);
+    // Also copy on resend
+    const link = getLinkFromToken(token);
+    navigator.clipboard.writeText(link);
+    
+    showToast(`Novo convite enviado! Link copiado.`);
   };
 
   const handleCloseModal = () => {
@@ -175,8 +184,7 @@ const ClientsManagement: React.FC<ClientsManagementProps> = ({
     setNewClient({ companyName: '', nif: '', email: '', contactPerson: '' });
   };
 
-  // Kept for backward compatibility if we ever need to manually open mail app, 
-  // but main flow is now background sending.
+  // Kept for backward compatibility
   const handleOpenEmailApp = () => {
     if (!generatedLink || !previewClient) return;
     const subject = `Convite: Acesso ao Portal - ${currentUser.name}`;
